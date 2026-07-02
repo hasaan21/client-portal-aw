@@ -596,6 +596,15 @@ a:hover { text-decoration: underline; }
 .stat-tiny { font-size: 0.75rem; }
 .report-list__actions { display: flex; align-items: center; gap: var(--space-2); }
 
+/* Audit log ----------------------------------------------------------------*/
+.mono-small { font-family: var(--font-mono); font-size: 0.75rem; color: var(--gray-700); line-height: 1.5; }
+.mono-small strong { color: var(--gray-800); font-weight: 600; }
+
+/* Accessibility & focus ------------------------------------------------------*/
+:focus-visible { outline: 2px solid var(--brand-blue-500); outline-offset: 2px; border-radius: var(--r-sm); }
+.btn:focus-visible { outline-offset: 3px; }
+.chip:focus-visible, [data-use-last-value]:focus-visible { outline-offset: 2px; }
+
 @media (max-width: 900px) {
   .balance-row__inputs { grid-template-columns: 1fr 1fr; }
   .sticky-actions { flex-direction: column; align-items: stretch; }

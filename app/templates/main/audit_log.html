@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Audit log — {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Audit log</h1>
+    <p class="muted">Every write to a client, account, liability, deductible, or report.</p>
+  </div>
+</section>
+
+<form method="get" class="card filter-bar">
+  <label class="field">
+    <span class="field-label">Entity</span>
+    <select name="entity" class="input" onchange="this.form.submit()">
+      <option value="">All</option>
+      {% for e in ["client", "account", "liability", "deductible", "report", "user"] %}
+        <option value="{{ e }}" {% if entity_filter == e %}selected{% endif %}>{{ e.title() }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="field">
+    <span class="field-label">Action</span>
+    <select name="action" class="input" onchange="this.form.submit()">
+      <option value="">All</option>
+      {% for a in ["create", "update", "update-balances", "delete", "archive", "restore", "finalize", "reopen"] %}
+        <option value="{{ a }}" {% if action_filter == a %}selected{% endif %}>{{ a.replace('-', ' ').title() }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="field">
+    <span class="field-label">Limit</span>
+    <input type="number" name="limit" class="input" value="{{ limit }}" min="10" max="1000" step="10" />
+  </label>
+  <button type="submit" class="btn btn-primary">Apply</button>
+</form>
+
+{% if entries %}
+  <div class="card no-pad">
+    <table class="table table--tight">
+      <thead>
+        <tr>
+          <th>When (UTC)</th>
+          <th>User</th>
+          <th>Entity</th>
+          <th>ID</th>
+          <th>Action</th>
+          <th>Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+          <tr>
+            <td><time datetime="{{ e.ts.isoformat() }}">{{ e.ts.strftime('%b %d, %H:%M') }}</time></td>
+            <td>{{ (users[e.user_id].name if e.user_id in users else '—') if e.user_id else 'System' }}</td>
+            <td><code class="chip">{{ e.entity }}</code></td>
+            <td class="muted">{{ e.entity_id or '—' }}</td>
+            <td>
+              <span class="badge badge--{{ 'final' if e.action in ['finalize', 'create'] else 'draft' }}">
+                {{ e.action }}
+              </span>
+            </td>
+            <td class="mono-small">
+              {% if e.diff_json %}
+                {% for key, val in e.diff_json.items() %}
+                  <div><strong>{{ key }}</strong>: {{ val }}</div>
+                {% endfor %}
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="card empty-state">
+    <p>No audit entries match those filters.</p>
+  </div>
+{% endif %}
+{% endblock %}

@@ -40,8 +40,8 @@ migrate: ## Create a new Alembic migration from model changes: `make migrate M="
 upgrade: ## Apply pending migrations
 	$(BIN)/flask --app run.py db upgrade
 
-seed: ## Seed 3 team users + demo clients
-	$(BIN)/python scripts/seed.py
+seed: ## Seed 3 team users (add DEMO=1 for a demo client + final report)
+	$(BIN)/python scripts/seed.py $(if $(DEMO),--demo)
 
 pdf-preview: ## Render sample PDFs to /tmp/aw-pdf-preview/ (synthetic client)
 	$(BIN)/python scripts/pdf_preview.py $(if $(CLIENT),--client-id $(CLIENT))
