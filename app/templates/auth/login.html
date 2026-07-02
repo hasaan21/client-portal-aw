@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Sign in — {{ app_name }}{% endblock %}
+{% block body_class %}auth-body{% endblock %}
+
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" width="40" height="40" />
+      <h1>{{ app_name }}</h1>
+      <p class="muted">Quarterly client reports, generated in minutes.</p>
+    </div>
+
+    <form method="post" novalidate class="stack">
+      {{ form.hidden_tag() }}
+
+      <label class="field">
+        <span class="field-label">{{ form.email.label.text }}</span>
+        {{ form.email(class_="input", placeholder="you@example.com") }}
+        {% for err in form.email.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </label>
+
+      <label class="field">
+        <span class="field-label">{{ form.password.label.text }}</span>
+        {{ form.password(class_="input", placeholder="••••••••") }}
+        {% for err in form.password.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+      </label>
+
+      <label class="checkbox">
+        {{ form.remember() }}
+        <span>{{ form.remember.label.text }}</span>
+      </label>
+
+      <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

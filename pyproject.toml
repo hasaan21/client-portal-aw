@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aw-client-portal"
+version = "0.1.0"
+description = "AW Client Report Portal — quarterly SACS & TCC PDF generator for a financial planning firm"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Hasaan Majeed", email = "ch.hasaan21@gmail.com" }]
+license = { text = "Proprietary" }
+
+dependencies = [
+  "Flask>=3.0,<4.0",
+  "Flask-SQLAlchemy>=3.1,<4.0",
+  "Flask-Migrate>=4.0,<5.0",
+  "Flask-Login>=0.6.3,<1.0",
+  "Flask-WTF>=1.2,<2.0",
+  "WTForms>=3.1,<4.0",
+  "SQLAlchemy>=2.0,<3.0",
+  "alembic>=1.13,<2.0",
+  "argon2-cffi>=23.1,<24.0",
+  "python-dotenv>=1.0,<2.0",
+  "reportlab>=4.2,<5.0",
+  "email-validator>=2.2,<3.0",
+  "gunicorn>=23.0,<24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9.0",
+  "pytest-cov>=5.0,<6.0",
+  "ruff>=0.6,<1.0",
+  "black>=24.8,<25.0",
+  "pre-commit>=4.0,<5.0",
+  "pdfminer.six>=20240706",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "N", "RUF"]
+ignore = [
+  "E501",   # black handles line length
+  "UP042",  # str+Enum mixin is deliberate (Flask/SQLAlchemy prefer it over StrEnum for DB storage)
+  "RUF012", # Flask config classes use dict literals as class attributes by design
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802", "N806"]
+"migrations/*" = ["E", "F", "W", "I", "N", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q --strict-markers"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/*/routes.py", "migrations/*"]

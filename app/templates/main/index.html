@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Welcome, {{ current_user.name.split()[0] }}.</h1>
+    <p class="muted">Everything you need to prep for the next quarterly meeting.</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{{ url_for('clients.index') }}" class="btn btn-primary">Manage clients</a>
+  </div>
+</section>
+
+<section class="stat-grid">
+  <div class="stat-card">
+    <span class="stat-label">Active clients</span>
+    <span class="stat-value">{{ client_count }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Reports generated</span>
+    <span class="stat-value">{{ report_count }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Signed in as</span>
+    <span class="stat-value stat-value--small">{{ current_user.email }}</span>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-header">
+    <h2>Recent reports</h2>
+  </div>
+  {% if recent_reports %}
+    <ul class="report-list">
+      {% for r in recent_reports %}
+        <li class="report-list__item">
+          <div>
+            <strong>{{ r.client.display_name }}</strong>
+            <span class="muted"> · meeting {{ r.meeting_date.strftime('%b %d, %Y') }}</span>
+          </div>
+          <span class="badge badge--{{ 'final' if r.is_final else 'draft' }}">{{ r.status.value }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="empty-state">
+      <p>No reports yet.</p>
+      <p class="muted">Add your first client, then generate a quarterly report from their profile.</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

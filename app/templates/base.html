@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% if current_user.is_authenticated %}
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="{{ url_for('main.index') }}">
+          <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" width="28" height="28" />
+          <span>{{ app_name }}</span>
+        </a>
+        <nav class="primary-nav" aria-label="Primary">
+          <a href="{{ url_for('main.index') }}" class="{% if request.endpoint == 'main.index' %}is-active{% endif %}">Dashboard</a>
+          <a href="{{ url_for('clients.index') }}" class="{% if request.endpoint and request.endpoint.startswith('clients.') %}is-active{% endif %}">Clients</a>
+          <a href="{{ url_for('reports.index') }}" class="{% if request.endpoint and request.endpoint.startswith('reports.') %}is-active{% endif %}">Reports</a>
+        </nav>
+        <div class="user-menu">
+          <span class="user-name">{{ current_user.name }}</span>
+          <form method="post" action="{{ url_for('auth.logout') }}" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="btn btn-ghost">Sign out</button>
+          </form>
+        </div>
+      </div>
+    </header>
+  {% endif %}
+
+  <main class="site-main">
+    <div class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-stack" role="status" aria-live="polite">
+            {% for category, message in messages %}
+              <div class="flash flash--{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>&copy; {{ current_year }} {{ app_name }}</span>
+      <span class="muted">v0.1.0</span>
+    </div>
+  </footer>
+
+  <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
