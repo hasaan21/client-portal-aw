@@ -1,0 +1,107 @@
+{# Shared household form fields, used by both new.html and edit.html. #}
+{{ form.hidden_tag() }}
+
+<div class="form-grid">
+  <label class="field field--wide">
+    <span class="field-label">{{ form.household_label.label.text }}</span>
+    {{ form.household_label(class_="input", placeholder="e.g. The Smiths") }}
+    {% if form.household_label.description %}<span class="field-help">{{ form.household_label.description }}</span>{% endif %}
+    {% for err in form.household_label.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+  </label>
+</div>
+
+<div class="form-section">
+  <h3>Client 1</h3>
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">{{ form.c1_first.label.text }}</span>
+      {{ form.c1_first(class_="input") }}
+      {% for err in form.c1_first.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field">
+      <span class="field-label">{{ form.c1_last.label.text }}</span>
+      {{ form.c1_last(class_="input") }}
+      {% for err in form.c1_last.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field">
+      <span class="field-label">{{ form.c1_dob.label.text }}</span>
+      {{ form.c1_dob(class_="input", type="date") }}
+      {% for err in form.c1_dob.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field">
+      <span class="field-label">{{ form.c1_ssn_last4.label.text }}</span>
+      {{ form.c1_ssn_last4(class_="input", inputmode="numeric", maxlength="4", pattern="\\d{4}") }}
+      {% for err in form.c1_ssn_last4.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field field--wide">
+      <span class="field-label">{{ form.c1_monthly_salary.label.text }}</span>
+      {{ form.c1_monthly_salary(class_="input", step="0.01", inputmode="decimal") }}
+      {% for err in form.c1_monthly_salary.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+  </div>
+</div>
+
+<div class="form-section">
+  <h3>Client 2 <span class="muted">(optional)</span></h3>
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">{{ form.c2_first.label.text }}</span>
+      {{ form.c2_first(class_="input") }}
+      {% for err in form.c2_first.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field">
+      <span class="field-label">{{ form.c2_last.label.text }}</span>
+      {{ form.c2_last(class_="input") }}
+      {% for err in form.c2_last.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field">
+      <span class="field-label">{{ form.c2_dob.label.text }}</span>
+      {{ form.c2_dob(class_="input", type="date") }}
+      {% for err in form.c2_dob.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field">
+      <span class="field-label">{{ form.c2_ssn_last4.label.text }}</span>
+      {{ form.c2_ssn_last4(class_="input", inputmode="numeric", maxlength="4", pattern="\\d{4}") }}
+      {% for err in form.c2_ssn_last4.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field field--wide">
+      <span class="field-label">{{ form.c2_monthly_salary.label.text }}</span>
+      {{ form.c2_monthly_salary(class_="input", step="0.01", inputmode="decimal") }}
+      {% for err in form.c2_monthly_salary.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+  </div>
+</div>
+
+<div class="form-section">
+  <h3>SACS</h3>
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">{{ form.monthly_expense_budget.label.text }}</span>
+      {{ form.monthly_expense_budget(class_="input", step="0.01", inputmode="decimal") }}
+      <span class="field-help">The number transferred from inflow to outflow each month.</span>
+      {% for err in form.monthly_expense_budget.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field">
+      <span class="field-label">{{ form.private_reserve_target_override.label.text }}</span>
+      {{ form.private_reserve_target_override(class_="input", step="0.01", inputmode="decimal") }}
+      <span class="field-help">{{ form.private_reserve_target_override.description }}</span>
+      {% for err in form.private_reserve_target_override.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field">
+      <span class="field-label">{{ form.private_reserve_label.label.text }}</span>
+      {{ form.private_reserve_label(class_="input") }}
+      <span class="field-help">{{ form.private_reserve_label.description }}</span>
+      {% for err in form.private_reserve_label.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field">
+      <span class="field-label">{{ form.trust_label.label.text }}</span>
+      {{ form.trust_label(class_="input") }}
+      {% for err in form.trust_label.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field field--wide">
+      <span class="field-label">{{ form.trust_property_address.label.text }}</span>
+      {{ form.trust_property_address(class_="input", rows="2") }}
+      {% for err in form.trust_property_address.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+  </div>
+</div>

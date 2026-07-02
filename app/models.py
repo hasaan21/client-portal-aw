@@ -188,6 +188,24 @@ class Client(TimestampMixin, db.Model):
     def display_name(self) -> str:
         return self.household_label or f"{self.c1_first} {self.c1_last}"
 
+    @staticmethod
+    def _age_from(dob: date | None) -> int | None:
+        if dob is None:
+            return None
+        today = date.today()
+        return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+    @property
+    def c1_age(self) -> int | None:
+        return self._age_from(self.c1_dob)
+
+    @property
+    def c2_age(self) -> int | None:
+        return self._age_from(self.c2_dob)
+
+    def last_report(self) -> Report | None:
+        return self.reports[0] if self.reports else None
+
     def __repr__(self) -> str:
         return f"<Client {self.household_label}>"
 

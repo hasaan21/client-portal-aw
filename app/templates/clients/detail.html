@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}{{ client.display_name }} — {{ app_name }}{% endblock %}
+
+{% macro member_card(first, last, age, dob, ssn) -%}
+  <div class="member-card">
+    <strong>{{ first }} {{ last }}</strong>
+    <dl class="member-details">
+      <div><dt>Age</dt><dd>{{ age if age is not none else '—' }}</dd></div>
+      <div><dt>DOB</dt><dd>{{ dob.strftime('%b %d, %Y') if dob else '—' }}</dd></div>
+      <div><dt>SSN</dt><dd>•••-••-{{ ssn or '—' }}</dd></div>
+    </dl>
+  </div>
+{%- endmacro %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>{{ client.display_name }}</h1>
+    <p class="muted">
+      {% if client.archived_at %}<span class="badge badge--draft">Archived</span> ·{% endif %}
+      Client since {{ client.created_at.strftime('%b %Y') }}
+    </p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{{ url_for('clients.edit_client', client_id=client.id) }}" class="btn btn-ghost">Edit household</a>
+    {% if client.archived_at %}
+      <form method="post" action="{{ url_for('clients.restore', client_id=client.id) }}" class="inline-form">
+        {{ delete_form.hidden_tag() }}
+        <button type="submit" class="btn btn-primary">Restore</button>
+      </form>
+    {% else %}
+      <form method="post" action="{{ url_for('clients.archive', client_id=client.id) }}" class="inline-form">
+        {{ delete_form.hidden_tag() }}
+        <button type="submit" class="btn btn-ghost" data-confirm="Archive this client? Reports and history are kept.">Archive</button>
+      </form>
+    {% endif %}
+    <a href="#" class="btn btn-primary" aria-disabled="true" title="Available after M3">Generate report</a>
+  </div>
+</section>
+
+<div class="grid-2">
+  {{ member_card(client.c1_first, client.c1_last, client.c1_age, client.c1_dob, client.c1_ssn_last4) }}
+  {% if client.is_married %}
+    {{ member_card(client.c2_first, client.c2_last, client.c2_age, client.c2_dob, client.c2_ssn_last4) }}
+  {% else %}
+    <div class="member-card member-card--empty">
+      <span class="muted">Single-client household</span>
+    </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>SACS parameters</h2>
+  <dl class="kv-grid">
+    <div><dt>Monthly expense budget</dt><dd>${{ '{:,.2f}'.format(client.monthly_expense_budget) }}</dd></div>
+    <div><dt>PR target override</dt><dd>{% if client.private_reserve_target_override %}${{ '{:,.2f}'.format(client.private_reserve_target_override) }}{% else %}<span class="muted">auto</span>{% endif %}</dd></div>
+    <div><dt>PR label</dt><dd>{{ client.private_reserve_label }}</dd></div>
+    <div><dt>Trust label</dt><dd>{{ client.trust_label }}</dd></div>
+    {% if client.trust_property_address %}
+      <div class="full"><dt>Trust address</dt><dd>{{ client.trust_property_address }}</dd></div>
+    {% endif %}
+  </dl>
+</div>
+
+{# ---- Accounts ------------------------------------------------------------#}
+<div class="card" id="accounts">
+  <div class="card-header">
+    <h2>Accounts</h2>
+    <span class="muted">{{ client.accounts|length }} total</span>
+  </div>
+
+  {% if client.accounts %}
+    <table class="table table--tight">
+      <thead>
+        <tr>
+          <th>Section</th>
+          <th>Owner</th>
+          <th>Kind</th>
+          <th>Label</th>
+          <th>Custodian</th>
+          <th>Last 4</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in client.accounts %}
+          <tr>
+            <td><code class="chip">{{ a.section.value.replace('_', ' ')|title }}</code></td>
+            <td>{{ a.owner.value|title }}</td>
+            <td>{{ a.kind.value.replace('_', ' ')|title }}</td>
+            <td>{{ a.display_name or '—' }}</td>
+            <td>{{ a.custodian or '—' }}</td>
+            <td>{{ a.last4 or '—' }}</td>
+            <td class="ta-right">
+              <form method="post" action="{{ url_for('clients.delete_account', client_id=client.id, account_id=a.id) }}" class="inline-form">
+                {{ delete_form.hidden_tag() }}
+                <button class="btn btn-ghost btn-sm" data-confirm="Remove this account?">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No accounts yet. Add the SACS accounts (inflow/outflow/private reserve/investment) and any retirement, non-retirement, or trust accounts.</p>
+  {% endif %}
+
+  <details class="add-row">
+    <summary>Add an account</summary>
+    <form method="post" action="{{ url_for('clients.add_account', client_id=client.id) }}" class="form-inline">
+      {{ account_form.hidden_tag() }}
+      <label class="field">
+        <span class="field-label">{{ account_form.section.label.text }}</span>
+        {{ account_form.section(class_="input") }}
+      </label>
+      <label class="field">
+        <span class="field-label">{{ account_form.owner.label.text }}</span>
+        {{ account_form.owner(class_="input") }}
+      </label>
+      <label class="field">
+        <span class="field-label">{{ account_form.kind.label.text }}</span>
+        {{ account_form.kind(class_="input") }}
+      </label>
+      <label class="field">
+        <span class="field-label">{{ account_form.display_name.label.text }}</span>
+        {{ account_form.display_name(class_="input", placeholder="e.g. Wells Fargo Main Checking") }}
+      </label>
+      <label class="field">
+        <span class="field-label">{{ account_form.custodian.label.text }}</span>
+        {{ account_form.custodian(class_="input", placeholder="e.g. Charles Schwab") }}
+      </label>
+      <label class="field">
+        <span class="field-label">{{ account_form.last4.label.text }}</span>
+        {{ account_form.last4(class_="input", inputmode="numeric", maxlength="4") }}
+      </label>
+      <button type="submit" class="btn btn-primary">Add account</button>
+    </form>
+  </details>
+</div>
+
+{# ---- Liabilities --------------------------------------------------------- #}
+<div class="card" id="liabilities">
+  <div class="card-header">
+    <h2>Liabilities</h2>
+    <span class="muted">{{ client.liabilities|length }} total</span>
+  </div>
+
+  {% if client.liabilities %}
+    <table class="table table--tight">
+      <thead><tr><th>Kind</th><th>Label</th><th>Interest rate</th><th></th></tr></thead>
+      <tbody>
+        {% for l in client.liabilities %}
+          <tr>
+            <td><code class="chip">{{ l.kind.value|title }}</code></td>
+            <td>{{ l.label }}</td>
+            <td>{{ '{:.3f}%'.format(l.interest_rate) if l.interest_rate is not none else '—' }}</td>
+            <td class="ta-right">
+              <form method="post" action="{{ url_for('clients.delete_liability', client_id=client.id, liability_id=l.id) }}" class="inline-form">
+                {{ delete_form.hidden_tag() }}
+                <button class="btn btn-ghost btn-sm" data-confirm="Remove this liability?">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No liabilities recorded.</p>
+  {% endif %}
+
+  <details class="add-row">
+    <summary>Add a liability</summary>
+    <form method="post" action="{{ url_for('clients.add_liability', client_id=client.id) }}" class="form-inline">
+      {{ liability_form.hidden_tag() }}
+      <label class="field">
+        <span class="field-label">{{ liability_form.kind.label.text }}</span>
+        {{ liability_form.kind(class_="input") }}
+      </label>
+      <label class="field">
+        <span class="field-label">{{ liability_form.label.label.text }}</span>
+        {{ liability_form.label(class_="input", placeholder="e.g. P Mortg") }}
+      </label>
+      <label class="field">
+        <span class="field-label">{{ liability_form.interest_rate.label.text }}</span>
+        {{ liability_form.interest_rate(class_="input", step="0.001", inputmode="decimal") }}
+      </label>
+      <button type="submit" class="btn btn-primary">Add liability</button>
+    </form>
+  </details>
+</div>
+
+{# ---- Insurance deductibles ----------------------------------------------- #}
+<div class="card" id="deductibles">
+  <div class="card-header">
+    <h2>Insurance deductibles</h2>
+    <span class="muted">feed the PR target formula</span>
+  </div>
+
+  {% if client.deductibles %}
+    <table class="table table--tight">
+      <thead><tr><th>Label</th><th>Amount</th><th></th></tr></thead>
+      <tbody>
+        {% for d in client.deductibles %}
+          <tr>
+            <td>{{ d.label }}</td>
+            <td>${{ '{:,.2f}'.format(d.amount) }}</td>
+            <td class="ta-right">
+              <form method="post" action="{{ url_for('clients.delete_deductible', client_id=client.id, deductible_id=d.id) }}" class="inline-form">
+                {{ delete_form.hidden_tag() }}
+                <button class="btn btn-ghost btn-sm" data-confirm="Remove this deductible?">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No deductibles yet.</p>
+  {% endif %}
+
+  <details class="add-row">
+    <summary>Add a deductible</summary>
+    <form method="post" action="{{ url_for('clients.add_deductible', client_id=client.id) }}" class="form-inline">
+      {{ deductible_form.hidden_tag() }}
+      <label class="field">
+        <span class="field-label">{{ deductible_form.label.label.text }}</span>
+        {{ deductible_form.label(class_="input", placeholder="e.g. Health") }}
+      </label>
+      <label class="field">
+        <span class="field-label">{{ deductible_form.amount.label.text }}</span>
+        {{ deductible_form.amount(class_="input", step="0.01", inputmode="decimal") }}
+      </label>
+      <button type="submit" class="btn btn-primary">Add deductible</button>
+    </form>
+  </details>
+</div>
+{% endblock %}

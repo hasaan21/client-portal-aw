@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Clients — {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Clients</h1>
+    <p class="muted">
+      {% if show_archived %}
+        Showing archived households.
+      {% else %}
+        {{ clients|length }} active household{{ '' if clients|length == 1 else 's' }}.
+      {% endif %}
+    </p>
+  </div>
+  <div class="page-header__actions">
+    {% if show_archived %}
+      <a href="{{ url_for('clients.index') }}" class="btn btn-ghost">Hide archived</a>
+    {% else %}
+      <a href="{{ url_for('clients.index', archived=1) }}" class="btn btn-ghost">Show archived</a>
+    {% endif %}
+    <a href="{{ url_for('clients.new_client') }}" class="btn btn-primary">Add client</a>
+  </div>
+</section>
+
+{% if clients %}
+  <div class="card no-pad">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Household</th>
+          <th>Members</th>
+          <th>Last report</th>
+          <th class="ta-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clients %}
+          <tr class="{% if c.archived_at %}row--archived{% endif %}">
+            <td>
+              <a href="{{ url_for('clients.detail', client_id=c.id) }}" class="link-strong">{{ c.display_name }}</a>
+              {% if c.archived_at %}<span class="badge badge--draft">Archived</span>{% endif %}
+            </td>
+            <td>
+              {{ c.c1_first }} {{ c.c1_last }}{% if c.is_married %} &amp; {{ c.c2_first }} {{ c.c2_last }}{% endif %}
+            </td>
+            <td>
+              {% set last = c.last_report() %}
+              {% if last %}
+                <span>{{ last.meeting_date.strftime('%b %d, %Y') }}</span>
+                <span class="badge badge--{{ 'final' if last.is_final else 'draft' }}">{{ last.status.value }}</span>
+              {% else %}
+                <span class="muted">Never</span>
+              {% endif %}
+            </td>
+            <td class="ta-right">
+              <a href="{{ url_for('clients.detail', client_id=c.id) }}" class="btn btn-ghost btn-sm">Open</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="card empty-state">
+    <p>No clients yet.</p>
+    <p class="muted">Add your first household to begin generating quarterly reports.</p>
+    <a href="{{ url_for('clients.new_client') }}" class="btn btn-primary">Add client</a>
+  </div>
+{% endif %}
+{% endblock %}

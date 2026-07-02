@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ client.display_name }} — {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Edit household</h1>
+    <p class="muted">{{ client.display_name }}</p>
+  </div>
+  <a href="{{ url_for('clients.detail', client_id=client.id) }}" class="btn btn-ghost">Cancel</a>
+</section>
+
+<form method="post" novalidate class="card stack">
+  {% include "clients/_form.html" %}
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Save changes</button>
+    <a href="{{ url_for('clients.detail', client_id=client.id) }}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}
