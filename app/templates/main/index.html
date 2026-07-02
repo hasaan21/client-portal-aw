@@ -8,38 +8,51 @@
     <p class="muted">Everything you need to prep for the next quarterly meeting.</p>
   </div>
   <div class="page-header__actions">
-    <a href="{{ url_for('clients.index') }}" class="btn btn-primary">Manage clients</a>
+    <a href="{{ url_for('clients.index') }}" class="btn btn-ghost">Clients</a>
+    <a href="{{ url_for('reports.index') }}" class="btn btn-primary">All reports</a>
   </div>
 </section>
 
 <section class="stat-grid">
-  <div class="stat-card">
+  <a href="{{ url_for('clients.index') }}" class="stat-card stat-card--link">
     <span class="stat-label">Active clients</span>
-    <span class="stat-value">{{ client_count }}</span>
-  </div>
-  <div class="stat-card">
-    <span class="stat-label">Reports generated</span>
-    <span class="stat-value">{{ report_count }}</span>
-  </div>
+    <span class="stat-value">{{ active_clients }}</span>
+  </a>
+  <a href="{{ url_for('reports.index', status='FINAL') }}" class="stat-card stat-card--link">
+    <span class="stat-label">Finalized reports</span>
+    <span class="stat-value">{{ final_reports }}</span>
+  </a>
+  <a href="{{ url_for('reports.index', status='DRAFT') }}" class="stat-card stat-card--link {% if draft_reports %}stat-card--warn{% endif %}">
+    <span class="stat-label">Open drafts</span>
+    <span class="stat-value">{{ draft_reports }}</span>
+  </a>
   <div class="stat-card">
     <span class="stat-label">Signed in as</span>
-    <span class="stat-value stat-value--small">{{ current_user.email }}</span>
+    <span class="stat-value stat-value--small">{{ current_user.name }}</span>
+    <span class="muted stat-tiny">{{ current_user.email }}</span>
   </div>
 </section>
 
 <section class="card">
   <div class="card-header">
-    <h2>Recent reports</h2>
+    <h2>Recent activity</h2>
+    <a href="{{ url_for('reports.index') }}" class="link-strong">View all →</a>
   </div>
   {% if recent_reports %}
     <ul class="report-list">
       {% for r in recent_reports %}
         <li class="report-list__item">
           <div>
-            <strong>{{ r.client.display_name }}</strong>
-            <span class="muted"> · meeting {{ r.meeting_date.strftime('%b %d, %Y') }}</span>
+            <a href="{{ url_for('reports.detail', report_id=r.id) }}" class="link-strong">{{ r.client.display_name }}</a>
+            <span class="muted"> · meeting {{ r.meeting_date.strftime('%b %d, %Y') }} · created {{ r.created_at.strftime('%b %d') }}</span>
           </div>
-          <span class="badge badge--{{ 'final' if r.is_final else 'draft' }}">{{ r.status.value }}</span>
+          <div class="report-list__actions">
+            {% if r.is_final and (r.sacs_pdf_path or r.tcc_pdf_path) %}
+              {% if r.sacs_pdf_path %}<a href="{{ url_for('reports.download_pdf', report_id=r.id, kind='sacs') }}" class="btn-mini">SACS</a>{% endif %}
+              {% if r.tcc_pdf_path %}<a href="{{ url_for('reports.download_pdf', report_id=r.id, kind='tcc') }}" class="btn-mini">TCC</a>{% endif %}
+            {% endif %}
+            <span class="badge badge--{{ 'final' if r.is_final else 'draft' }}">{{ r.status.value }}</span>
+          </div>
         </li>
       {% endfor %}
     </ul>
@@ -47,6 +60,7 @@
     <div class="empty-state">
       <p>No reports yet.</p>
       <p class="muted">Add your first client, then generate a quarterly report from their profile.</p>
+      <a href="{{ url_for('clients.new_client') }}" class="btn btn-primary">Add first client</a>
     </div>
   {% endif %}
 </section>

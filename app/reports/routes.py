@@ -65,12 +65,31 @@ def _get_client_or_404(client_id: int) -> Client:
 @bp.route("/", endpoint="index")
 @login_required
 def index():
-    reports = (
-        db.session.execute(db.select(Report).order_by(Report.created_at.desc()).limit(50))
+    status_filter = request.args.get("status", "").upper()
+    client_filter = request.args.get("client_id", type=int)
+
+    stmt = db.select(Report).order_by(Report.created_at.desc()).limit(200)
+    if status_filter in ("DRAFT", "FINAL"):
+        stmt = stmt.where(Report.status == ReportStatus(status_filter))
+    if client_filter:
+        stmt = stmt.where(Report.client_id == client_filter)
+
+    reports = db.session.execute(stmt).scalars().all()
+    clients = (
+        db.session.execute(
+            db.select(Client).where(Client.archived_at.is_(None)).order_by(Client.household_label)
+        )
         .scalars()
         .all()
     )
-    return render_template("reports/index.html", reports=reports)
+
+    return render_template(
+        "reports/index.html",
+        reports=reports,
+        clients=clients,
+        status_filter=status_filter,
+        client_filter=client_filter,
+    )
 
 
 # ---- new -------------------------------------------------------------------

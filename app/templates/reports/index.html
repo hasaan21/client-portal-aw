@@ -5,9 +5,32 @@
 <section class="page-header">
   <div>
     <h1>Reports</h1>
-    <p class="muted">{{ reports|length }} recent quarterly reports.</p>
+    <p class="muted">{{ reports|length }} matching report{{ '' if reports|length == 1 else 's' }}{% if status_filter or client_filter %} (filtered){% endif %}.</p>
   </div>
 </section>
+
+<form method="get" class="card filter-bar">
+  <label class="field">
+    <span class="field-label">Status</span>
+    <select name="status" class="input" onchange="this.form.submit()">
+      <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+      <option value="DRAFT" {% if status_filter == 'DRAFT' %}selected{% endif %}>Draft</option>
+      <option value="FINAL" {% if status_filter == 'FINAL' %}selected{% endif %}>Final</option>
+    </select>
+  </label>
+  <label class="field">
+    <span class="field-label">Client</span>
+    <select name="client_id" class="input" onchange="this.form.submit()">
+      <option value="">All clients</option>
+      {% for c in clients %}
+        <option value="{{ c.id }}" {% if client_filter == c.id %}selected{% endif %}>{{ c.display_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% if status_filter or client_filter %}
+    <a href="{{ url_for('reports.index') }}" class="btn btn-ghost btn-sm">Clear filters</a>
+  {% endif %}
+</form>
 
 {% if reports %}
   <div class="card no-pad">
@@ -17,7 +40,8 @@
           <th>Client</th>
           <th>Meeting date</th>
           <th>Status</th>
-          <th>Created by</th>
+          <th>Downloads</th>
+          <th>Created</th>
           <th class="ta-right">Actions</th>
         </tr>
       </thead>
@@ -29,7 +53,21 @@
             </td>
             <td>{{ r.meeting_date.strftime('%b %d, %Y') }}</td>
             <td><span class="badge badge--{{ 'final' if r.is_final else 'draft' }}">{{ r.status.value }}</span></td>
-            <td>{{ r.created_by.name if r.created_by else '—' }}</td>
+            <td>
+              {% if r.sacs_pdf_path %}
+                <a href="{{ url_for('reports.download_pdf', report_id=r.id, kind='sacs') }}" class="btn-mini">SACS</a>
+              {% endif %}
+              {% if r.tcc_pdf_path %}
+                <a href="{{ url_for('reports.download_pdf', report_id=r.id, kind='tcc') }}" class="btn-mini">TCC</a>
+              {% endif %}
+              {% if not r.sacs_pdf_path and not r.tcc_pdf_path %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="muted">{{ r.created_at.strftime('%b %d, %Y') }}</span>
+              {% if r.created_by %}<span class="muted"> by {{ r.created_by.name.split()[0] }}</span>{% endif %}
+            </td>
             <td class="ta-right">
               <a href="{{ url_for('reports.detail', report_id=r.id) }}" class="btn btn-ghost btn-sm">Open</a>
             </td>
@@ -40,8 +78,12 @@
   </div>
 {% else %}
   <div class="card empty-state">
-    <p>No reports yet.</p>
-    <p class="muted">Open a client and click "Generate report" to create one.</p>
+    <p>No reports match those filters.</p>
+    {% if status_filter or client_filter %}
+      <a href="{{ url_for('reports.index') }}" class="btn btn-ghost">Clear filters</a>
+    {% else %}
+      <p class="muted">Open a client and click "Generate report" to create one.</p>
+    {% endif %}
   </div>
 {% endif %}
 {% endblock %}
