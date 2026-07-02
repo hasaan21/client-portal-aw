@@ -79,33 +79,54 @@ def _make_sample_client() -> tuple[Client, User]:
             Account(client_id=c.id, section=section, owner=AccountOwner.JOINT, kind=kind)
         )
 
+    retirement_accounts = [
+        (AccountOwner.CLIENT1, AccountKind.ROTH_IRA, "Fidelity Roth", "Fidelity", "1122"),
+        (AccountOwner.CLIENT1, AccountKind.IRA, "Vanguard IRA", "Vanguard", "3344"),
+        (AccountOwner.CLIENT2, AccountKind._401K, "Schwab 401(k)", "Schwab", "5566"),
+        (AccountOwner.CLIENT2, AccountKind.PENSION, "Empower Pension", "Empower", "7788"),
+    ]
+    for owner, kind, name, custodian, last4 in retirement_accounts:
+        db.session.add(
+            Account(
+                client_id=c.id,
+                section=AccountSection.RETIREMENT,
+                owner=owner,
+                kind=kind,
+                display_name=name,
+                custodian=custodian,
+                last4=last4,
+            )
+        )
+
     db.session.add(
         Account(
             client_id=c.id,
-            section=AccountSection.RETIREMENT,
-            owner=AccountOwner.CLIENT1,
-            kind=AccountKind.ROTH_IRA,
-            display_name="Fidelity Roth",
+            section=AccountSection.NON_RETIREMENT,
+            owner=AccountOwner.JOINT,
+            kind=AccountKind.CHECKING,
+            display_name="Wells Fargo Main",
+            custodian="Wells Fargo",
+            last4="9911",
         )
     )
     db.session.add(
         Account(
             client_id=c.id,
-            section=AccountSection.RETIREMENT,
-            owner=AccountOwner.CLIENT2,
-            kind=AccountKind._401K,
-            display_name="Schwab 401(k)",
+            section=AccountSection.TRUST,
+            owner=AccountOwner.TRUST,
+            kind=AccountKind.OTHER,
+            display_name="Trust Property",
         )
     )
 
     db.session.add(InsuranceDeductible(client_id=c.id, label="Health", amount=D("1000")))
     db.session.add(InsuranceDeductible(client_id=c.id, label="Home", amount=D("2000")))
 
-    db.session.add(
-        Liability(
-            client_id=c.id, kind=LiabilityKind.MORTGAGE, label="P Mortg", interest_rate=D("6.125")
-        )
-    )
+    for kind, label, rate in [
+        (LiabilityKind.MORTGAGE, "P Mortg", D("6.125")),
+        (LiabilityKind.AUTO, "Mercedes", D("4.500")),
+    ]:
+        db.session.add(Liability(client_id=c.id, kind=kind, label=label, interest_rate=rate))
     db.session.commit()
     return c, admin
 
@@ -113,27 +134,36 @@ def _make_sample_client() -> tuple[Client, User]:
 def _fill_realistic_balances(report: Report) -> None:
     """Wire in the sample numbers from the reference PDFs."""
     for b in report.balances:
-        if b.account.section == AccountSection.SACS_INFLOW:
+        section = b.account.section
+        name = b.account.display_name or ""
+        if section == AccountSection.SACS_INFLOW:
             b.balance = D("15000")
-        elif b.account.section == AccountSection.SACS_OUTFLOW:
+        elif section == AccountSection.SACS_OUTFLOW:
             b.balance = D("12000")
-        elif b.account.section == AccountSection.SACS_PRIVATE_RESERVE:
+        elif section == AccountSection.SACS_PRIVATE_RESERVE:
             b.balance = D("52000")
-        elif b.account.section == AccountSection.SACS_INVESTMENT:
+        elif section == AccountSection.SACS_INVESTMENT:
             b.balance = D("18500")
-        elif (
-            b.account.section == AccountSection.RETIREMENT
-            and b.account.owner == AccountOwner.CLIENT1
-        ):
-            b.balance = D("11162.47")
-        elif (
-            b.account.section == AccountSection.RETIREMENT
-            and b.account.owner == AccountOwner.CLIENT2
-        ):
-            b.balance = D("126160.38")
+        elif section == AccountSection.RETIREMENT:
+            if "Roth" in name:
+                b.balance = D("11162.47")
+            elif "IRA" in name:
+                b.balance = D("15000.00")
+            elif "401" in name:
+                b.balance = D("70042.00")
+            elif "Pension" in name:
+                b.balance = D("56118.38")
+        elif section == AccountSection.NON_RETIREMENT:
+            b.balance = D("189308.04")
+        elif section == AccountSection.TRUST:
+            b.balance = D("450000")
 
     for lb in report.liability_balances:
-        lb.balance = D("224218.24")
+        liab = next(x for x in report.client.liabilities if x.id == lb.liability_id)
+        if liab.label == "P Mortg":
+            lb.balance = D("224218.24")
+        elif liab.label == "Mercedes":
+            lb.balance = D("11152.00")
 
 
 def main() -> None:
