@@ -551,6 +551,8 @@ a:hover { text-decoration: underline; }
 .totals-grid .tt-warn { color: var(--warning); }
 
 .sticky-actions__buttons { display: flex; gap: var(--space-3); flex-shrink: 0; }
+.stack-tight { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-end; }
+.btn-group { display: flex; gap: var(--space-2); }
 
 @media (max-width: 900px) {
   .balance-row__inputs { grid-template-columns: 1fr 1fr; }

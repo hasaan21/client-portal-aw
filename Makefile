@@ -43,8 +43,8 @@ upgrade: ## Apply pending migrations
 seed: ## Seed 3 team users + demo clients
 	$(BIN)/python scripts/seed.py
 
-pdf-preview: ## Render sample PDFs into instance/pdfs/preview/ (usage: make pdf-preview CLIENT=1)
-	$(BIN)/python scripts/pdf_preview.py --client $(or $(CLIENT),1)
+pdf-preview: ## Render sample PDFs to /tmp/aw-pdf-preview/ (synthetic client)
+	$(BIN)/python scripts/pdf_preview.py $(if $(CLIENT),--client-id $(CLIENT))
 
 backup: ## Timestamped SQLite backup into ./backups/
 	$(BIN)/python scripts/backup_db.py

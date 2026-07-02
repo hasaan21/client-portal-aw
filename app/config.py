@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -53,6 +54,7 @@ class TestConfig(BaseConfig):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     WTF_CSRF_ENABLED = False
     SECRET_KEY = "test-secret-key"
+    PDF_OUTPUT_DIR = str(Path(tempfile.gettempdir()) / "aw-portal-test-pdfs")
 
 
 _CONFIG_MAP = {

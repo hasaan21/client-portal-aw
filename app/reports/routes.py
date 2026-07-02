@@ -15,7 +15,17 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from flask import abort, current_app, flash, jsonify, redirect, render_template, request, url_for
+from flask import (
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
 from flask_login import current_user, login_required
 from sqlalchemy.exc import IntegrityError
 
@@ -23,6 +33,7 @@ from app.audit import record as audit_record
 from app.clients.forms import DeleteForm
 from app.extensions import db
 from app.models import Client, Report, ReportStatus
+from app.pdf.orchestrator import generate_all
 from app.reports import bp
 from app.reports.forms import NewReportForm
 from app.reports.services import (
@@ -139,20 +150,63 @@ def finalize(report_id: int):
         flash("Report already finalized.", "info")
         return redirect(url_for("reports.detail", report_id=report.id))
 
-    # PDF generation is wired in M4/M5. For M3 we only lock the report.
     report.status = ReportStatus.FINAL
     report.generated_at = datetime.utcnow()
     audit_record("report", report.id, "finalize")
+    db.session.flush()
+
+    outputs = generate_all(report)
+    if "sacs" in outputs:
+        report.sacs_pdf_path = outputs["sacs"]
+    if "tcc" in outputs:
+        report.tcc_pdf_path = outputs["tcc"]
     db.session.commit()
 
     current_app.logger.info(
-        "Report %s finalized for client %s by %s",
+        "Report %s finalized for client %s by %s (%d PDFs generated)",
         report.id,
         report.client_id,
         current_user.email,
+        len(outputs),
     )
-    flash("Report finalized. PDF generation ships with M4/M5.", "success")
+
+    if not outputs:
+        flash("Report finalized. PDF builders ship in later milestones.", "success")
+    else:
+        flash(
+            f"Report finalized. Generated: {', '.join(outputs.keys()).upper()}.",
+            "success",
+        )
     return redirect(url_for("reports.detail", report_id=report.id))
+
+
+# ---- PDF downloads ---------------------------------------------------------
+
+
+@bp.route("/<int:report_id>/pdf/<kind>")
+@login_required
+def download_pdf(report_id: int, kind: str):
+    if kind not in ("sacs", "tcc"):
+        abort(404)
+    report = _get_report_or_404(report_id)
+    path = report.sacs_pdf_path if kind == "sacs" else report.tcc_pdf_path
+    if not path:
+        # Try regenerating on demand (useful in dev after enabling a builder).
+        outputs = generate_all(report)
+        if kind not in outputs:
+            abort(404)
+        if kind == "sacs":
+            report.sacs_pdf_path = outputs["sacs"]
+        else:
+            report.tcc_pdf_path = outputs["tcc"]
+        db.session.commit()
+        path = outputs[kind]
+    from pathlib import Path
+
+    p = Path(path)
+    if not p.exists():
+        abort(404)
+    return send_file(p, as_attachment=True, download_name=p.name, mimetype="application/pdf")
 
 
 # ---- reopen ----------------------------------------------------------------

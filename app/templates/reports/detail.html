@@ -187,7 +187,17 @@
 
     <div class="sticky-actions__buttons">
       {% if report.is_final %}
-        <span class="muted">Finalized {{ report.generated_at.strftime('%b %d, %Y %H:%M UTC') if report.generated_at else '' }}</span>
+        <div class="stack-tight">
+          <span class="muted">Finalized {{ report.generated_at.strftime('%b %d, %Y %H:%M UTC') if report.generated_at else '' }}</span>
+          <div class="btn-group">
+            {% if report.sacs_pdf_path %}
+              <a href="{{ url_for('reports.download_pdf', report_id=report.id, kind='sacs') }}" class="btn btn-primary btn-sm">Download SACS</a>
+            {% endif %}
+            {% if report.tcc_pdf_path %}
+              <a href="{{ url_for('reports.download_pdf', report_id=report.id, kind='tcc') }}" class="btn btn-primary btn-sm">Download TCC</a>
+            {% endif %}
+          </div>
+        </div>
       {% else %}
         <button type="submit" class="btn btn-ghost">Save draft</button>
         <button type="submit" formaction="{{ url_for('reports.finalize', report_id=report.id) }}"
