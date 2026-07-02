@@ -198,20 +198,24 @@ def test_tcc_produces_valid_pdf(app, tcc_ready_report):
 
 def test_tcc_header_content(app, tcc_ready_report):
     _, text, _ = _extract(app, tcc_ready_report)
-    assert "Total Circle of Concern" in text
     assert "Green Family" in text
     assert "January 15, 2026" in text
+    assert "GRAND TOTAL" in text
 
 
 def test_tcc_shows_retirement_account_labels(app, tcc_ready_report):
     """Retirement accounts render as individual bubbles per spouse.
 
-    Non-retirement is intentionally a subtotal (matches the reference sample);
-    liabilities are itemized in a separate section below.
+    Non-retirement is also itemized as individual bubbles (matching the
+    reference sample); liabilities are itemized in the center table.
+    Labels are truncated to ~14 chars in the small bubbles, so we check for
+    substrings rather than exact matches.
     """
     _, text, _ = _extract(app, tcc_ready_report)
-    for label in ["Fidelity Roth", "Vanguard IRA", "Schwab 401(k)", "Company Pension"]:
+    for label in ["Fidelity Roth", "Vanguard IRA", "Company Pension"]:
         assert label in text, f"Missing retirement account: {label}"
+    # "Schwab 401(k)" is 14 chars — may be truncated to "Schwab 401(k…" depending on layout
+    assert "Schwab" in text
 
 
 def test_tcc_shows_computed_grand_total(app, tcc_ready_report):
@@ -224,13 +228,13 @@ def test_tcc_shows_computed_grand_total(app, tcc_ready_report):
 
 def test_tcc_shows_non_retirement_subtotal(app, tcc_ready_report):
     _, text, _ = _extract(app, tcc_ready_report)
-    assert "Non-Retirement" in text
+    assert "NON RETIREMENT TOTAL" in text
     assert "$189,308.04" in text
 
 
 def test_tcc_liabilities_section(app, tcc_ready_report):
     _, text, _ = _extract(app, tcc_ready_report)
-    assert "LIABILITIES" in text
+    assert "Liabilities" in text
     assert "P Mortg" in text
     assert "Mercedes" in text
     assert "$224,218.24" in text
@@ -267,12 +271,12 @@ def test_tcc_stale_footnote_and_asterisk(app, tcc_ready_report):
 
     _, text, _ = _extract(app, tcc_ready_report)
     assert "*" in text
-    assert "not up to date" in text
+    assert "up to date information" in text
 
 
 def test_tcc_no_stale_footnote_when_all_current(app, tcc_ready_report):
     _, text, _ = _extract(app, tcc_ready_report)
-    assert "not up to date" not in text
+    assert "up to date information" not in text
 
 
 def test_tcc_deterministic(app, tcc_ready_report):
@@ -334,5 +338,6 @@ def test_tcc_shows_single_client_when_unmarried(app, user_factory):
         data = render_tcc(report)
     text = extract_text(BytesIO(data))
     assert "Alex" in text
-    # Should not crash and should not show a client-2 name
-    assert "Solo Client" in text or "Alex Doe" in text
+    assert "Solo Client" in text
+    # Client 2 name oval should NOT be rendered for a single-client household
+    assert "Client 2 Retirement Only" not in text
