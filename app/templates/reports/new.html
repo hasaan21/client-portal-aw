@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}New report — {{ client.display_name }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>New quarterly report</h1>
+    <p class="muted">{{ client.display_name }}</p>
+  </div>
+  <a href="{{ url_for('clients.detail', client_id=client.id) }}" class="btn btn-ghost">Cancel</a>
+</section>
+
+<form method="post" novalidate class="card stack">
+  {{ form.hidden_tag() }}
+
+  <label class="field">
+    <span class="field-label">{{ form.meeting_date.label.text }}</span>
+    {{ form.meeting_date(class_="input", type="date") }}
+    <span class="field-help">Balances will be pre-filled from the previous final report if one exists.</span>
+    {% for err in form.meeting_date.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+  </label>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Create draft</button>
+    <a href="{{ url_for('clients.detail', client_id=client.id) }}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}

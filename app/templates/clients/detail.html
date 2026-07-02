@@ -34,7 +34,7 @@
         <button type="submit" class="btn btn-ghost" data-confirm="Archive this client? Reports and history are kept.">Archive</button>
       </form>
     {% endif %}
-    <a href="#" class="btn btn-primary" aria-disabled="true" title="Available after M3">Generate report</a>
+    <a href="{{ url_for('reports.new_report', client_id=client.id) }}" class="btn btn-primary">Generate report</a>
   </div>
 </section>
 
@@ -60,6 +60,31 @@
       <div class="full"><dt>Trust address</dt><dd>{{ client.trust_property_address }}</dd></div>
     {% endif %}
   </dl>
+</div>
+
+{# ---- Reports history --------------------------------------------------- #}
+<div class="card" id="reports">
+  <div class="card-header">
+    <h2>Reports</h2>
+    <span class="muted">{{ client.reports|length }} total</span>
+  </div>
+  {% if client.reports %}
+    <table class="table table--tight">
+      <thead><tr><th>Meeting date</th><th>Status</th><th>Created</th><th class="ta-right"></th></tr></thead>
+      <tbody>
+        {% for r in client.reports %}
+          <tr>
+            <td><a href="{{ url_for('reports.detail', report_id=r.id) }}" class="link-strong">{{ r.meeting_date.strftime('%b %d, %Y') }}</a></td>
+            <td><span class="badge badge--{{ 'final' if r.is_final else 'draft' }}">{{ r.status.value }}</span></td>
+            <td>{{ r.created_at.strftime('%b %d, %Y') }}</td>
+            <td class="ta-right"><a href="{{ url_for('reports.detail', report_id=r.id) }}" class="btn btn-ghost btn-sm">Open</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No reports yet.</p>
+  {% endif %}
 </div>
 
 {# ---- Accounts ------------------------------------------------------------#}

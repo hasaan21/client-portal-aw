@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% from "reports/_balance_row.html" import balance_row %}
+{% block title %}{{ report.client.display_name }} · {{ report.meeting_date.strftime('%b %d, %Y') }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>{{ report.client.display_name }}</h1>
+    <p class="muted">
+      Meeting {{ report.meeting_date.strftime('%B %d, %Y') }} ·
+      <span class="badge badge--{{ 'final' if report.is_final else 'draft' }}">{{ report.status.value }}</span>
+      {% if ctx.previous_report %}
+        · previous: {{ ctx.previous_report.meeting_date.strftime('%b %d, %Y') }}
+      {% endif %}
+    </p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{{ url_for('clients.detail', client_id=report.client.id) }}" class="btn btn-ghost">Back to client</a>
+    {% if report.is_final %}
+      <form method="post" action="{{ url_for('reports.reopen', report_id=report.id) }}" class="inline-form">
+        {{ delete_form.hidden_tag() }}
+        <button class="btn btn-ghost" data-confirm="Reopen this final report for edits?">Reopen</button>
+      </form>
+    {% else %}
+      <form method="post" action="{{ url_for('reports.delete', report_id=report.id) }}" class="inline-form">
+        {{ delete_form.hidden_tag() }}
+        <button class="btn btn-ghost" data-confirm="Discard this draft?">Delete draft</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+
+<form method="post" action="{{ url_for('reports.detail', report_id=report.id) }}" id="report-form" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+  {# ---- SACS ------------------------------------------------------------ #}
+  <div class="card">
+    <div class="card-header">
+      <h2>SACS balances</h2>
+      <span class="muted">Cashflow diagram (Page 1) + Reserve & Investment (Page 2)</span>
+    </div>
+
+    {% for key, label, hint in [
+      ('inflow',          'Inflow',                 'Client take-home deposited to primary checking.'),
+      ('outflow',         'Outflow',                'Agreed monthly expense budget (transferred on the 28th).'),
+      ('private_reserve', client.private_reserve_label ~ ' balance', 'Requested from bank ~2 days before meeting.'),
+      ('investment',      'Investment account',     'From Schwab (Andrew or Rebecca retrieves manually).'),
+    ] %}
+      {% if ctx.sacs_rows.get(key) %}
+        <div class="section-label">
+          <span>{{ label }}</span>
+          <span class="muted">{{ hint }}</span>
+        </div>
+        {{ balance_row(ctx.sacs_rows[key], report.is_final) }}
+      {% else %}
+        <div class="empty-hint">
+          <em>{{ label }}</em> account not defined —
+          <a href="{{ url_for('clients.detail', client_id=client.id) }}#accounts">add it on the client profile</a>.
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  {# ---- Retirement ----------------------------------------------------- #}
+  <div class="card">
+    <div class="card-header">
+      <h2>Retirement accounts</h2>
+      <span class="muted">Per spouse — retirement is never joint.</span>
+    </div>
+    <div class="grid-2 tcc-grid">
+      <div>
+        <div class="section-label"><span>{{ client.c1_first }} — Retirement</span></div>
+        {% for row in ctx.c1_retirement %}
+          {{ balance_row(row, report.is_final) }}
+        {% else %}
+          <p class="muted">No retirement accounts for {{ client.c1_first }}.</p>
+        {% endfor %}
+      </div>
+      <div>
+        {% if client.is_married %}
+          <div class="section-label"><span>{{ client.c2_first }} — Retirement</span></div>
+          {% for row in ctx.c2_retirement %}
+            {{ balance_row(row, report.is_final) }}
+          {% else %}
+            <p class="muted">No retirement accounts for {{ client.c2_first }}.</p>
+          {% endfor %}
+        {% else %}
+          <p class="muted">Single-client household.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ---- Non-retirement ------------------------------------------------- #}
+  <div class="card">
+    <div class="card-header">
+      <h2>Non-retirement accounts</h2>
+      <span class="muted">Trust is excluded from this subtotal.</span>
+    </div>
+    {% for row in ctx.non_retirement %}
+      {{ balance_row(row, report.is_final) }}
+    {% else %}
+      <p class="muted">No non-retirement accounts defined for this client.</p>
+    {% endfor %}
+  </div>
+
+  {# ---- Trust ---------------------------------------------------------- #}
+  <div class="card">
+    <div class="card-header">
+      <h2>{{ client.trust_label }}</h2>
+      <span class="muted">{% if client.trust_property_address %}{{ client.trust_property_address }}{% else %}Central TCC bubble.{% endif %}</span>
+    </div>
+    {% for row in ctx.trust %}
+      {{ balance_row(row, report.is_final) }}
+    {% else %}
+      <p class="muted">No trust account defined.</p>
+    {% endfor %}
+  </div>
+
+  {# ---- Liabilities ---------------------------------------------------- #}
+  <div class="card">
+    <div class="card-header">
+      <h2>Liabilities</h2>
+      <span class="muted">Never subtracted from net worth.</span>
+    </div>
+    {% for lrow in ctx.liabilities %}
+      {% set l = lrow.liability %}
+      {% set lb = lrow.balance %}
+      {% set plb = lrow.previous %}
+      <div class="balance-row" data-liability-id="{{ l.id }}">
+        <div class="balance-row__meta">
+          <div class="balance-row__title">
+            <strong>{{ l.label }}</strong>
+            <span class="muted">
+              {{ l.kind.value|title }}
+              {% if l.interest_rate is not none %} · {{ '{:.3f}%'.format(l.interest_rate) }}{% endif %}
+            </span>
+          </div>
+          {% if plb %}
+            <button type="button"
+                    class="chip chip--action"
+                    data-use-last-value
+                    data-target="liab_balance_{{ l.id }}"
+                    data-value="{{ plb.balance }}">
+              Last: ${{ '{:,.2f}'.format(plb.balance) }}
+            </button>
+          {% endif %}
+        </div>
+        <div class="balance-row__inputs">
+          <label class="field">
+            <span class="field-label">Balance</span>
+            <input class="input liab-balance-input"
+                   type="number" step="0.01" inputmode="decimal"
+                   name="liab_balance_{{ l.id }}"
+                   value="{{ lb.balance }}"
+                   {% if report.is_final %}readonly{% endif %} />
+          </label>
+          <label class="field">
+            <span class="field-label">As of</span>
+            <input class="input"
+                   type="date"
+                   name="liab_as_of_{{ l.id }}"
+                   value="{{ lb.as_of_date.isoformat() if lb.as_of_date else '' }}"
+                   {% if report.is_final %}readonly{% endif %} />
+          </label>
+        </div>
+      </div>
+    {% else %}
+      <p class="muted">No liabilities defined.</p>
+    {% endfor %}
+  </div>
+
+  {# ---- Sticky live totals + actions ---------------------------------- #}
+  <div class="sticky-actions">
+    <div class="live-totals" id="live-totals" data-endpoint="{{ url_for('reports.live_totals', report_id=report.id) }}">
+      <div class="totals-grid">
+        <span class="tt-label">Excess</span>          <span class="tt-value" data-total="excess">${{ '{:,.2f}'.format(totals.excess) }}</span>
+        <span class="tt-label">PR target</span>       <span class="tt-value" data-total="pr_target">${{ '{:,.2f}'.format(totals.pr_target) }}</span>
+        <span class="tt-label">C1 retirement</span>   <span class="tt-value" data-total="c1_retirement">${{ '{:,.2f}'.format(totals.c1_retirement) }}</span>
+        {% if client.is_married %}<span class="tt-label">C2 retirement</span>   <span class="tt-value" data-total="c2_retirement">${{ '{:,.2f}'.format(totals.c2_retirement) }}</span>{% endif %}
+        <span class="tt-label">Non-retirement</span>  <span class="tt-value" data-total="non_retirement">${{ '{:,.2f}'.format(totals.non_retirement) }}</span>
+        <span class="tt-label">Trust</span>           <span class="tt-value" data-total="trust_value">${{ '{:,.2f}'.format(totals.trust_value) }}</span>
+        <span class="tt-label tt-label--big">Grand total</span> <span class="tt-value tt-value--big" data-total="grand_total">${{ '{:,.2f}'.format(totals.grand_total) }}</span>
+        <span class="tt-label tt-warn">Liabilities</span>       <span class="tt-value tt-warn" data-total="liabilities_total">${{ '{:,.2f}'.format(totals.liabilities_total) }}</span>
+      </div>
+    </div>
+
+    <div class="sticky-actions__buttons">
+      {% if report.is_final %}
+        <span class="muted">Finalized {{ report.generated_at.strftime('%b %d, %Y %H:%M UTC') if report.generated_at else '' }}</span>
+      {% else %}
+        <button type="submit" class="btn btn-ghost">Save draft</button>
+        <button type="submit" formaction="{{ url_for('reports.finalize', report_id=report.id) }}"
+                class="btn btn-primary"
+                data-confirm="Finalize this report? It will be locked from further edits (but can be reopened).">Finalize</button>
+      {% endif %}
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/report-entry.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,66 @@
+{# Renders a single balance-entry row. `row` is a services.BalanceRow. #}
+{% macro balance_row(row, is_final) -%}
+  {% set a = row.account %}
+  {% set b = row.balance %}
+  {% set prev = row.previous %}
+  <div class="balance-row" data-account-id="{{ a.id }}" data-section="{{ a.section.value }}" data-owner="{{ a.owner.value }}">
+    <div class="balance-row__meta">
+      <div class="balance-row__title">
+        <strong>{{ a.display_name or a.kind.value.replace('_', ' ').title() }}</strong>
+        <span class="muted">
+          {% if a.custodian %}{{ a.custodian }} · {% endif %}
+          {% if a.last4 %}#{{ a.last4 }}{% endif %}
+        </span>
+      </div>
+      {% if prev %}
+        <button type="button"
+                class="chip chip--action"
+                data-use-last-value
+                data-target="balance_{{ a.id }}"
+                data-value="{{ prev.balance }}"
+                title="Reuse last quarter's balance">
+          Last: ${{ '{:,.2f}'.format(prev.balance) }}
+        </button>
+      {% else %}
+        <span class="chip chip--muted">First quarter</span>
+      {% endif %}
+    </div>
+
+    <div class="balance-row__inputs">
+      <label class="field">
+        <span class="field-label">Balance</span>
+        <input class="input balance-input"
+               type="number" step="0.01" inputmode="decimal"
+               name="balance_{{ a.id }}"
+               value="{{ b.balance }}"
+               {% if is_final %}readonly{% endif %} />
+      </label>
+
+      {% if row.show_cash %}
+        <label class="field">
+          <span class="field-label">Cash sub-balance</span>
+          <input class="input"
+                 type="number" step="0.01" inputmode="decimal"
+                 name="cash_{{ a.id }}"
+                 value="{{ b.cash_balance if b.cash_balance is not none else '' }}"
+                 placeholder="of the above"
+                 {% if is_final %}readonly{% endif %} />
+        </label>
+      {% endif %}
+
+      <label class="field">
+        <span class="field-label">As of</span>
+        <input class="input"
+               type="date"
+               name="as_of_{{ a.id }}"
+               value="{{ b.as_of_date.isoformat() if b.as_of_date else '' }}"
+               {% if is_final %}readonly{% endif %} />
+      </label>
+
+      <label class="checkbox stale-checkbox">
+        <input type="checkbox" name="stale_{{ a.id }}" {% if b.is_stale %}checked{% endif %} {% if is_final %}disabled{% endif %} />
+        <span>Not up to date <span class="muted">(renders * on PDF)</span></span>
+      </label>
+    </div>
+  </div>
+{%- endmacro %}

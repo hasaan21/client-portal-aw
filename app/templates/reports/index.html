@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Reports — {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Reports</h1>
+    <p class="muted">{{ reports|length }} recent quarterly reports.</p>
+  </div>
+</section>
+
+{% if reports %}
+  <div class="card no-pad">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Meeting date</th>
+          <th>Status</th>
+          <th>Created by</th>
+          <th class="ta-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+          <tr>
+            <td>
+              <a href="{{ url_for('clients.detail', client_id=r.client.id) }}" class="link-strong">{{ r.client.display_name }}</a>
+            </td>
+            <td>{{ r.meeting_date.strftime('%b %d, %Y') }}</td>
+            <td><span class="badge badge--{{ 'final' if r.is_final else 'draft' }}">{{ r.status.value }}</span></td>
+            <td>{{ r.created_by.name if r.created_by else '—' }}</td>
+            <td class="ta-right">
+              <a href="{{ url_for('reports.detail', report_id=r.id) }}" class="btn btn-ghost btn-sm">Open</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="card empty-state">
+    <p>No reports yet.</p>
+    <p class="muted">Open a client and click "Generate report" to create one.</p>
+  </div>
+{% endif %}
+{% endblock %}
