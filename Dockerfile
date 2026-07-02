@@ -5,34 +5,46 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
+# System deps: build tools for wheels that lack prebuilt linux-arm64 wheels,
+# libpango/libcairo for ReportLab image rendering, curl for the healthcheck.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
       libpango-1.0-0 \
       libcairo2 \
+      libjpeg-dev \
+      zlib1g-dev \
       curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# Copy metadata + source. Layer caching is imperfect because pyproject
+# depends on app/__init__.py existing, but the whole install is < 30s.
 COPY pyproject.toml README.md ./
 COPY app ./app
-RUN pip install --upgrade pip && pip install .
-
 COPY run.py ./
 COPY migrations ./migrations
 COPY scripts ./scripts
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
+RUN pip install --upgrade pip && pip install .
+
+# Non-root user + writable data dir.
 RUN useradd --create-home --shell /bin/bash appuser \
     && mkdir -p /data/pdfs \
-    && chown -R appuser:appuser /app /data
+    && chown -R appuser:appuser /app /data \
+    && chmod +x /app/docker-entrypoint.sh
 USER appuser
 
 EXPOSE 5000
 
-ENV DATABASE_URL=sqlite:////data/portal.db \
+ENV DATA_DIR=/data \
+    DATABASE_URL=sqlite:////data/portal.db \
     PDF_OUTPUT_DIR=/data/pdfs \
     FLASK_APP=run.py \
     FLASK_ENV=production
 
-# Migrations run then gunicorn starts. Overridable via `command:` in Railway.
-CMD ["sh", "-c", "flask db upgrade && gunicorn -w 2 -b 0.0.0.0:${PORT:-5000} --access-logfile - --error-logfile - 'app:create_app()'"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -fsS "http://127.0.0.1:${PORT:-5000}/healthz" || exit 1
+
+ENTRYPOINT ["./docker-entrypoint.sh"]

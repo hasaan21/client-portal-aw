@@ -6,7 +6,9 @@ from __future__ import annotations
 def test_healthz_returns_ok(client):
     resp = client.get("/healthz")
     assert resp.status_code == 200
-    assert resp.get_json() == {"status": "ok"}
+    body = resp.get_json()
+    assert body["status"] == "ok"
+    assert body["db"] == "reachable"
 
 
 def test_login_page_renders(client):

@@ -69,9 +69,18 @@ def _register_error_handlers(app: Flask) -> None:
 
 
 def _register_healthcheck(app: Flask) -> None:
+    from sqlalchemy import text
+
     @app.route("/healthz")
     def healthz():
-        return {"status": "ok"}, 200
+        """Liveness + readiness. Verifies DB connectivity so Railway swaps
+        traffic only once migrations have finished."""
+        try:
+            db.session.execute(text("SELECT 1"))
+            return {"status": "ok", "db": "reachable"}, 200
+        except Exception as exc:
+            app.logger.error("Healthcheck failed: %s", exc)
+            return {"status": "degraded", "error": str(exc)}, 503
 
 
 def _register_context_processors(app: Flask) -> None:

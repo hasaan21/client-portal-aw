@@ -5,10 +5,22 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "flask db upgrade && gunicorn -w 2 -b 0.0.0.0:${PORT:-5000} --access-logfile - --error-logfile - 'app:create_app()'",
+    "startCommand": "./docker-entrypoint.sh",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 5,
     "healthcheckPath": "/healthz",
-    "healthcheckTimeout": 30
+    "healthcheckTimeout": 30,
+    "numReplicas": 1
+  },
+  "notes": {
+    "volume": "Attach a persistent volume mounted at /data. SQLite DB, migrations state, and generated PDFs all live under /data.",
+    "envVars": [
+      "SECRET_KEY (required, cryptographically random)",
+      "SEED_ON_BOOT=1 to auto-seed the 3 team users on first boot",
+      "SEED_ADMIN_PASSWORD=<pw> to set the initial seed password (else random & logged)",
+      "SEED_DEMO=1 to also create a demo client on first boot",
+      "SESSION_COOKIE_SECURE=true (recommended for HTTPS)",
+      "GUNICORN_WORKERS (default 2)"
+    ]
   }
 }

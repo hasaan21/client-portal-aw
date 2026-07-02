@@ -96,13 +96,40 @@ All of the above are implemented in [`app/calc/engine.py`](app/calc/engine.py) a
 
 ## Deployment (Railway)
 
-1. Push to a GitHub repo.
-2. `railway init` → link the repo.
-3. Add a **volume** mounted at `/data` (holds `portal.db` and generated PDFs).
-4. Set env vars: `SECRET_KEY` (long random string), `FLASK_ENV=production`, `SESSION_COOKIE_SECURE=true`.
-5. Deploy. The startup command runs `flask db upgrade` before booting gunicorn.
+1. Push to a GitHub repo, then `railway init` and link the repo.
+2. Attach a **persistent volume** mounted at `/data`. All state (SQLite DB, PDFs) lives under `/data` so restarts and redeploys are safe.
+3. Set env vars:
+   | Var                        | Purpose                                                     |
+   | -------------------------- | ----------------------------------------------------------- |
+   | `SECRET_KEY`               | **Required.** Cryptographically random string.              |
+   | `SESSION_COOKIE_SECURE`    | Set to `true` (Railway serves HTTPS by default).            |
+   | `SEED_ON_BOOT`             | `1` = auto-create Andrew/Rebecca/Maryann on first boot.     |
+   | `SEED_ADMIN_PASSWORD`      | Fixed initial password (else one is generated & logged).    |
+   | `SEED_DEMO`                | `1` = also insert a demo client with a final report.        |
+   | `GUNICORN_WORKERS`         | Default `2`.                                                |
+   | `GUNICORN_TIMEOUT`         | Default `30` seconds.                                       |
+4. Deploy. The [`docker-entrypoint.sh`](docker-entrypoint.sh) sequences:
+   1. Verify `/data` is writable
+   2. `flask db upgrade` (schema migrations)
+   3. First-boot seed if `SEED_ON_BOOT=1` and no users exist
+   4. `exec gunicorn` (signals propagate; Railway can graceful-restart)
+5. Verify the deploy via `GET /healthz` — returns `{"status": "ok", "db": "reachable"}` when the app + database are both healthy. Railway is configured to route traffic only once this returns 200.
 
-See [`Dockerfile`](Dockerfile) and [`railway.json`](railway.json).
+### Backups
+
+Run `python scripts/backup_db.py` on a cron or via `railway run` to snapshot `/data/portal.db` into `/data/backups/YYYY-MM-DD-HHMMSS.db`. For long-term durability you can also rclone the volume to S3/GCS.
+
+### Local production dry-run
+
+```bash
+docker build -t aw-portal .
+docker run --rm -p 5000:5000 \
+  -v aw-portal-data:/data \
+  -e SECRET_KEY=$(openssl rand -hex 32) \
+  -e SEED_ON_BOOT=1 \
+  -e SEED_ADMIN_PASSWORD=change-me \
+  aw-portal
+```
 
 ---
 
