@@ -52,8 +52,7 @@ def main() -> int:
         ).scalar_one()
         if existing_count > 0:
             print(
-                f"[bootstrap] {existing_count} user(s) already exist — "
-                "skipping bootstrap admin.",
+                f"[bootstrap] {existing_count} user(s) already exist — skipping bootstrap admin.",
             )
             return 0
 
