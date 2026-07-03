@@ -6,7 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # System deps: build tools for wheels that lack prebuilt linux-arm64 wheels,
-# libpango/libcairo for ReportLab image rendering, curl for the healthcheck.
+# libpango/libcairo for ReportLab image rendering, curl for the healthcheck,
+# gosu for the root -> appuser privilege-drop in docker-entrypoint.sh (needed
+# because Railway mounts persistent volumes as root at container start).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
       libpango-1.0-0 \
@@ -14,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libjpeg-dev \
       zlib1g-dev \
       curl \
+      gosu \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -29,12 +32,14 @@ COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN pip install --upgrade pip && pip install .
 
-# Non-root user + writable data dir.
+# Create the non-root user + writable data dir. We deliberately do NOT set
+# `USER appuser` here — the container has to start as root so the entrypoint
+# can chown the Railway-mounted /data volume (mounted as root at container
+# start) before dropping privileges via `gosu appuser`.
 RUN useradd --create-home --shell /bin/bash appuser \
     && mkdir -p /data/pdfs \
     && chown -R appuser:appuser /app /data \
     && chmod +x /app/docker-entrypoint.sh
-USER appuser
 
 EXPOSE 5000
 

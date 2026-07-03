@@ -16,6 +16,19 @@ echo "[entrypoint] starting AW Client Portal"
 DATA_DIR="${DATA_DIR:-/data}"
 PDF_DIR="${PDF_OUTPUT_DIR:-${DATA_DIR}/pdfs}"
 
+# Railway (and most managed platforms) mount persistent volumes as root:root
+# at container start, overriding whatever ownership we set at build time. If
+# we're currently root, take advantage of that to chown the volume, then drop
+# privileges to appuser via gosu and re-exec ourselves as that user. The
+# non-root branch of this script (everything below the fi) then runs as
+# appuser exactly as before.
+if [[ "$(id -u)" == "0" ]]; then
+  mkdir -p "$DATA_DIR" "$PDF_DIR"
+  chown -R appuser:appuser "$DATA_DIR"
+  echo "[entrypoint] fixed /data ownership, dropping privileges to appuser"
+  exec gosu appuser "$0" "$@"
+fi
+
 mkdir -p "$DATA_DIR" "$PDF_DIR"
 
 if [[ ! -w "$DATA_DIR" ]]; then
