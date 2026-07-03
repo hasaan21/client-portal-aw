@@ -24,6 +24,9 @@
           <a href="{{ url_for('main.index') }}" class="{% if request.endpoint == 'main.index' %}is-active{% endif %}">Dashboard</a>
           <a href="{{ url_for('clients.index') }}" class="{% if request.endpoint and request.endpoint.startswith('clients.') %}is-active{% endif %}">Clients</a>
           <a href="{{ url_for('reports.index') }}" class="{% if request.endpoint and request.endpoint.startswith('reports.') %}is-active{% endif %}">Reports</a>
+          {% if current_user.is_admin %}
+            <a href="{{ url_for('team.index') }}" class="{% if request.endpoint and request.endpoint.startswith('team.') %}is-active{% endif %}">Team</a>
+          {% endif %}
           <a href="{{ url_for('main.audit_log') }}" class="{% if request.endpoint == 'main.audit_log' %}is-active{% endif %}">Audit</a>
         </nav>
         <div class="user-menu">

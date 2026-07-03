@@ -59,14 +59,20 @@ def _register_blueprints(app: Flask) -> None:
     from app.clients import bp as clients_bp
     from app.main import bp as main_bp
     from app.reports import bp as reports_bp
+    from app.team import bp as team_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(clients_bp, url_prefix="/clients")
     app.register_blueprint(reports_bp, url_prefix="/reports")
+    app.register_blueprint(team_bp, url_prefix="/team")
 
 
 def _register_error_handlers(app: Flask) -> None:
+    @app.errorhandler(403)
+    def forbidden(_):  # pragma: no cover - trivial
+        return render_template("errors/403.html"), 403
+
     @app.errorhandler(404)
     def not_found(_):  # pragma: no cover - trivial
         return render_template("errors/404.html"), 404

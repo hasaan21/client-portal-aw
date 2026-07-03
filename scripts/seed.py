@@ -1,14 +1,19 @@
-"""Seed the three team users, and optionally a demo client.
+"""Seed local-dev users and optionally a demo client.
 
-Usage:
-    python scripts/seed.py                    # users only
-    python scripts/seed.py --demo             # users + one demo client with a final report
-    python scripts/seed.py --demo --force     # even if the demo client already exists
+DEV usage:
+    python scripts/seed.py                        # users only (local dev)
+    python scripts/seed.py --demo                 # users + demo client
+    python scripts/seed.py --demo --force         # recreate demo client
 
-Idempotent: re-running only updates missing fields, never overwrites hashes.
+PRODUCTION usage:
+    python scripts/seed.py --demo --demo-only     # demo client only, no users
+    (The initial admin is created by scripts/bootstrap_admin.py from env vars.
+     Additional teammates are invited through the /team UI. This script is
+     NEVER used to create real production users.)
 
-Passwords are printed to stdout the FIRST time a user is created and then never
-again. Save them in your password manager immediately.
+The TEAM list below intentionally uses `@example.com` placeholders — these
+are DEV-ONLY convenience users so the app has something to log in as during
+local development. Do not deploy them to production.
 """
 
 from __future__ import annotations
@@ -41,6 +46,9 @@ from app.models import (
 from app.pdf.orchestrator import generate_all
 from app.reports.services import scaffold_new_report
 
+# Local-dev placeholder team. NEVER shipped to production — production
+# bootstraps a single admin via scripts/bootstrap_admin.py using
+# BOOTSTRAP_ADMIN_EMAIL, and teammates are invited from the /team UI.
 TEAM = [
     {"email": "andrew@example.com", "name": "Andrew Windbrook", "is_admin": True},
     {"email": "rebecca@example.com", "name": "Rebecca Planner", "is_admin": False},
@@ -291,6 +299,12 @@ def main() -> int:
         "--demo", action="store_true", help="Also seed a demo client with a final report."
     )
     parser.add_argument(
+        "--demo-only",
+        action="store_true",
+        help="Skip user seeding entirely (production first-boot demo). Requires "
+        "at least one existing user to author the demo report.",
+    )
+    parser.add_argument(
         "--force", action="store_true", help="Recreate the demo client if it exists."
     )
     args = parser.parse_args()
@@ -298,13 +312,24 @@ def main() -> int:
     app = create_app()
     with app.app_context():
         db.create_all()
-        created, admin = _seed_users()
-        if args.demo:
+
+        if args.demo_only:
+            # Production path: any admin user is fine as the demo report's author.
+            admin = db.session.execute(
+                db.select(User).order_by(User.is_admin.desc(), User.id).limit(1)
+            ).scalar_one_or_none()
+            created = 0
+        else:
+            created, admin = _seed_users()
+
+        if args.demo or args.demo_only:
             if admin is None:
-                print("! cannot seed demo client without an admin user")
+                print("! cannot seed demo client — no user exists to author the report")
                 return 1
             _seed_demo_client(admin, args.force)
-        print(f"\n{created} user(s) created; {len(TEAM) - created} already existed.")
+
+        if not args.demo_only:
+            print(f"\n{created} user(s) created; {len(TEAM) - created} already existed.")
     return 0
 
 

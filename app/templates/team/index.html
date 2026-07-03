@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Team — {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Team</h1>
+    <p class="muted">
+      {{ users|length }} teammate{{ '' if users|length == 1 else 's' }} — admins can invite, reset
+      passwords, or revoke access. All actions are recorded in the audit log.
+    </p>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-header">
+    <h2>Invite a teammate</h2>
+    <span class="muted">A one-time password is generated and shown once — copy it before dismissing the flash.</span>
+  </div>
+  <form method="post" action="{{ url_for('team.invite') }}" class="form-grid">
+    {{ invite_form.csrf_token }}
+    <label class="field">
+      <span class="field-label">Email</span>
+      {{ invite_form.email(class_="input", type="email", placeholder="teammate@yourfirm.com") }}
+      {% for err in invite_form.email.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="field">
+      <span class="field-label">Full name</span>
+      {{ invite_form.name(class_="input", placeholder="Jane Planner") }}
+      {% for err in invite_form.name.errors %}<span class="field-error">{{ err }}</span>{% endfor %}
+    </label>
+    <label class="checkbox">
+      {{ invite_form.is_admin() }}
+      <span>{{ invite_form.is_admin.label.text }}
+        <span class="muted"> — {{ invite_form.is_admin.description }}</span>
+      </span>
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Invite &amp; generate password</button>
+    </div>
+  </form>
+</section>
+
+<section class="card no-pad">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th class="ta-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+        <tr>
+          <td>
+            <strong>{{ u.name }}</strong>
+            {% if u.id == current_user.id %}<span class="badge badge--draft">You</span>{% endif %}
+          </td>
+          <td class="muted">{{ u.email }}</td>
+          <td>
+            {% if u.is_admin %}
+              <span class="badge badge--final">Admin</span>
+            {% else %}
+              <span class="badge badge--draft">Member</span>
+            {% endif %}
+          </td>
+          <td class="ta-right team-actions">
+            <form method="post" action="{{ url_for('team.reset_password', user_id=u.id) }}" class="inline-form"
+                  onsubmit="return confirm('Generate a new password for {{ u.email }}? Their old password will stop working immediately.');">
+              {{ action_form.csrf_token }}
+              <button type="submit" class="btn btn-ghost btn-sm">Reset password</button>
+            </form>
+            {% if u.id != current_user.id %}
+              <form method="post" action="{{ url_for('team.toggle_admin', user_id=u.id) }}" class="inline-form">
+                {{ action_form.csrf_token }}
+                <button type="submit" class="btn btn-ghost btn-sm">
+                  {{ 'Revoke admin' if u.is_admin else 'Make admin' }}
+                </button>
+              </form>
+              <form method="post" action="{{ url_for('team.delete', user_id=u.id) }}" class="inline-form"
+                    onsubmit="return confirm('Remove {{ u.email }} from the team? This cannot be undone.');">
+                {{ action_form.csrf_token }}
+                <button type="submit" class="btn btn-ghost btn-sm btn-danger-ghost">Remove</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

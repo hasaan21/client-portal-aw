@@ -55,3 +55,21 @@ def logged_in_client(client, user_factory):
     )
     assert resp.status_code == 200
     return client
+
+
+@pytest.fixture()
+def admin_client(client, user_factory):
+    """Test client authenticated as an admin — for /team routes."""
+    admin = user_factory(
+        email="admin@example.com",
+        name="Admin User",
+        password="correct-horse-admin",
+        is_admin=True,
+    )
+    resp = client.post(
+        "/auth/login",
+        data={"email": admin.email, "password": "correct-horse-admin"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    return client, admin

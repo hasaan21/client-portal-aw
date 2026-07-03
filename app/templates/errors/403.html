@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Forbidden — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="card empty-state">
+  <h1>403</h1>
+  <p>This page is restricted to admins.</p>
+  <p class="muted">Ask an existing admin to grant you access from the Team page.</p>
+  <a href="{{ url_for('main.index') }}" class="btn btn-primary">Back to dashboard</a>
+</div>
+{% endblock %}

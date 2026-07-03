@@ -16,11 +16,13 @@
     "volume": "Attach a persistent volume mounted at /data. SQLite DB, migrations state, and generated PDFs all live under /data.",
     "envVars": [
       "SECRET_KEY (required, cryptographically random)",
-      "SEED_ON_BOOT=1 to auto-seed the 3 team users on first boot",
-      "SEED_ADMIN_PASSWORD=<pw> to set the initial seed password (else random & logged)",
-      "SEED_DEMO=1 to also create a demo client on first boot",
-      "SESSION_COOKIE_SECURE=true (recommended for HTTPS)",
-      "GUNICORN_WORKERS (default 2)"
+      "SESSION_COOKIE_SECURE=true (required on HTTPS)",
+      "BOOTSTRAP_ADMIN_EMAIL=<real admin email> — creates ONE admin on first boot; teammates then invited via /team UI",
+      "BOOTSTRAP_ADMIN_NAME=<display name> (optional, defaults to email local-part)",
+      "BOOTSTRAP_ADMIN_PASSWORD=<password> (optional; if omitted, a random 16-char password is printed to deploy logs ONCE)",
+      "SEED_DEMO=1 to also create a demo client on first boot (idempotent, no-op if it already exists)",
+      "GUNICORN_WORKERS (default 2)",
+      "GUNICORN_TIMEOUT (default 30 seconds)"
     ]
   }
 }

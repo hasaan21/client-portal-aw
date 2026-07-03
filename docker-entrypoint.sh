@@ -4,7 +4,9 @@
 # Order of operations:
 #   1. Ensure /data volume exists and is writable.
 #   2. Apply pending Alembic migrations.
-#   3. First-boot: if SEED_ON_BOOT=1 and no users exist, run the seed script.
+#   3. First-boot: create the initial admin from BOOTSTRAP_ADMIN_EMAIL /
+#      BOOTSTRAP_ADMIN_PASSWORD (idempotent — skips if any user exists).
+#      Optionally also insert a demo client when SEED_DEMO=1.
 #   4. Exec gunicorn (replacing this shell so signals propagate cleanly).
 
 set -euo pipefail
@@ -24,23 +26,26 @@ fi
 echo "[entrypoint] applying migrations..."
 flask db upgrade
 
-if [[ "${SEED_ON_BOOT:-0}" == "1" ]]; then
-  # Only seed if no users exist yet, so restarts don't re-print passwords.
-  users_present=$(python -c "
-from app import create_app
-from app.extensions import db
-from app.models import User
-app = create_app()
-with app.app_context():
-    count = db.session.execute(db.select(db.func.count()).select_from(User)).scalar_one()
-    print(count)
-")
-  if [[ "$users_present" == "0" ]]; then
-    echo "[entrypoint] first boot detected — seeding users"
-    python scripts/seed.py ${SEED_DEMO:+--demo}
-  else
-    echo "[entrypoint] users already exist — skipping seed"
-  fi
+# ---- First-boot user provisioning ------------------------------------------
+# We deliberately do NOT ship any hardcoded example.com users to production.
+# Instead:
+#   - BOOTSTRAP_ADMIN_EMAIL creates ONE admin on first boot.
+#   - That admin invites the rest of the team via /team in the UI.
+#
+# scripts/bootstrap_admin.py is idempotent — it no-ops as soon as any user
+# exists, so container restarts never re-print passwords.
+if [[ -n "${BOOTSTRAP_ADMIN_EMAIL:-}" ]]; then
+  python scripts/bootstrap_admin.py
+else
+  echo "[entrypoint] BOOTSTRAP_ADMIN_EMAIL not set — skipping admin bootstrap."
+fi
+
+# Optional demo-client seed (still guarded by SEED_DEMO=1). Runs only when at
+# least one user exists so the audit log has an author to attribute the demo
+# writes to. Idempotent via a --demo-only flag that skips user creation.
+if [[ "${SEED_DEMO:-0}" == "1" ]]; then
+  echo "[entrypoint] SEED_DEMO=1 — inserting demo client if missing"
+  python scripts/seed.py --demo --demo-only || echo "[entrypoint] demo seed skipped (already present or no user)"
 fi
 
 PORT="${PORT:-5000}"

@@ -264,6 +264,10 @@ a:hover { text-decoration: underline; }
 .btn-ghost:hover { background: var(--gray-100); color: var(--gray-800); }
 
 .btn-danger { background: var(--danger); color: var(--gray-0); }
+.btn-danger-ghost { color: var(--danger); border-color: #fecaca; }
+.btn-danger-ghost:hover { background: var(--danger-bg); color: var(--danger); }
+
+.team-actions { display: inline-flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
 .btn-danger:hover { background: #b91c1c; }
 
 .btn-block { width: 100%; }

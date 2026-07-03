@@ -99,21 +99,33 @@ All of the above are implemented in [`app/calc/engine.py`](app/calc/engine.py) a
 1. Push to a GitHub repo, then `railway init` and link the repo.
 2. Attach a **persistent volume** mounted at `/data`. All state (SQLite DB, PDFs) lives under `/data` so restarts and redeploys are safe.
 3. Set env vars:
-   | Var                        | Purpose                                                     |
-   | -------------------------- | ----------------------------------------------------------- |
-   | `SECRET_KEY`               | **Required.** Cryptographically random string.              |
-   | `SESSION_COOKIE_SECURE`    | Set to `true` (Railway serves HTTPS by default).            |
-   | `SEED_ON_BOOT`             | `1` = auto-create Andrew/Rebecca/Maryann on first boot.     |
-   | `SEED_ADMIN_PASSWORD`      | Fixed initial password (else one is generated & logged).    |
-   | `SEED_DEMO`                | `1` = also insert a demo client with a final report.        |
-   | `GUNICORN_WORKERS`         | Default `2`.                                                |
-   | `GUNICORN_TIMEOUT`         | Default `30` seconds.                                       |
+   | Var                        | Purpose                                                                                       |
+   | -------------------------- | --------------------------------------------------------------------------------------------- |
+   | `SECRET_KEY`               | **Required.** Cryptographically random string.                                                |
+   | `SESSION_COOKIE_SECURE`    | Set to `true` (Railway serves HTTPS by default).                                              |
+   | `BOOTSTRAP_ADMIN_EMAIL`    | Real email of the first admin. Created **once** on first boot; ignored if any user exists.    |
+   | `BOOTSTRAP_ADMIN_NAME`     | Display name for that admin (optional; defaults to the email local-part, capitalised).        |
+   | `BOOTSTRAP_ADMIN_PASSWORD` | Initial password (optional; if omitted a random 16-char password is printed to deploy logs). |
+   | `SEED_DEMO`                | `1` = also insert a demo client with a final report on first boot.                            |
+   | `GUNICORN_WORKERS`         | Default `2`.                                                                                  |
+   | `GUNICORN_TIMEOUT`         | Default `30` seconds.                                                                         |
 4. Deploy. The [`docker-entrypoint.sh`](docker-entrypoint.sh) sequences:
    1. Verify `/data` is writable
    2. `flask db upgrade` (schema migrations)
-   3. First-boot seed if `SEED_ON_BOOT=1` and no users exist
-   4. `exec gunicorn` (signals propagate; Railway can graceful-restart)
+   3. First-boot: `scripts/bootstrap_admin.py` creates ONE admin (idempotent — no-op if users exist)
+   4. Optional: `scripts/seed.py --demo --demo-only` inserts a demo client if `SEED_DEMO=1`
+   5. `exec gunicorn` (signals propagate; Railway can graceful-restart)
 5. Verify the deploy via `GET /healthz` — returns `{"status": "ok", "db": "reachable"}` when the app + database are both healthy. Railway is configured to route traffic only once this returns 200.
+6. Sign in as the bootstrap admin, open **Team**, and invite the rest of the staff. Each invite generates a temp password shown once in the flash — copy it into your password manager or DM the invitee. They can rotate it via **Team → Reset password** on themselves.
+
+### Provisioning teammates
+
+There is **no public sign-up** — this is an internal tool operating on client PII. All user provisioning happens from the in-app **Team** page (admin-only). Admins can:
+
+- **Invite** — creates a user + one-time temp password (shown once).
+- **Reset password** — regenerates a password (shown once). Use this if a teammate loses theirs.
+- **Grant / revoke admin** — protected: the last admin cannot self-demote.
+- **Remove** — soft-guarded: teammates who have authored reports must be demoted rather than deleted, so the audit history stays intact.
 
 ### Backups
 
@@ -126,8 +138,8 @@ docker build -t aw-portal .
 docker run --rm -p 5000:5000 \
   -v aw-portal-data:/data \
   -e SECRET_KEY=$(openssl rand -hex 32) \
-  -e SEED_ON_BOOT=1 \
-  -e SEED_ADMIN_PASSWORD=change-me \
+  -e BOOTSTRAP_ADMIN_EMAIL=you@yourfirm.com \
+  -e BOOTSTRAP_ADMIN_PASSWORD=change-me \
   aw-portal
 ```
 
