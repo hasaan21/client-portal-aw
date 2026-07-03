@@ -382,6 +382,76 @@ def test_reopen_returns_to_draft(logged_in_client, app, rich_client):
         assert db.session.get(Report, rid).status == ReportStatus.DRAFT
 
 
+def test_report_detail_get_renders_template(logged_in_client, app, rich_client):
+    """Regression: the detail template references bare `client.*` (e.g.
+    private_reserve_label, c1_first, trust_label). The route must pass
+    `client=report.client` so Jinja can resolve them — otherwise the page
+    500s on every GET (bug reproduced in dev on 2026-07-02)."""
+    logged_in_client.post(f"/reports/new/{rich_client}", data={"meeting_date": "2026-01-15"})
+    with app.app_context():
+        rid = db.session.execute(db.select(Report.id)).scalar_one()
+
+    resp = logged_in_client.get(f"/reports/{rid}")
+    assert resp.status_code == 200, resp.data[:500]
+    body = resp.data.decode()
+    # Sanity: fields sourced from `client` are actually rendered.
+    assert "Smith" in body  # c1_first / c1_last
+    assert "Smith Family Trust" in body  # client.trust_label
+
+
+def test_pdf_download_after_finalize(logged_in_client, app, rich_client):
+    """Finalized reports must serve their generated PDFs. Regression for a
+    dev-day bug where PDF_OUTPUT_DIR was relative and Flask.send_file
+    resolved report.sacs_pdf_path against app.root_path (=<project>/app)
+    instead of the project root, producing a 500 FileNotFoundError."""
+    logged_in_client.post(f"/reports/new/{rich_client}", data={"meeting_date": "2026-01-15"})
+    with app.app_context():
+        rid = db.session.execute(db.select(Report.id)).scalar_one()
+    logged_in_client.post(f"/reports/{rid}/finalize")
+
+    for kind in ("sacs", "tcc"):
+        resp = logged_in_client.get(f"/reports/{rid}/pdf/{kind}")
+        assert resp.status_code == 200, f"{kind} download failed: {resp.status_code}"
+        assert resp.mimetype == "application/pdf"
+        assert resp.data.startswith(b"%PDF"), f"{kind} response is not a PDF"
+
+
+def test_pdf_download_recovers_from_legacy_relative_path(logged_in_client, app, rich_client):
+    """If an older DB row stored a relative PDF path (pre-normalisation),
+    the download route must still find the file — otherwise every historical
+    finalized report 500s after upgrade."""
+    logged_in_client.post(f"/reports/new/{rich_client}", data={"meeting_date": "2026-01-15"})
+    with app.app_context():
+        rid = db.session.execute(db.select(Report.id)).scalar_one()
+    logged_in_client.post(f"/reports/{rid}/finalize")
+
+    import shutil
+    from pathlib import Path
+
+    with app.app_context():
+        r = db.session.get(Report, rid)
+        abs_path = Path(r.sacs_pdf_path)
+        assert abs_path.is_absolute() and abs_path.exists()
+
+        # Copy the PDF into a fake legacy location under the project root
+        # so we can store a relative path (like older builds did) and prove
+        # the download route resolves it correctly.
+        project_root = Path(app.root_path).parent
+        legacy_rel = Path("instance") / "legacy-pdfs" / abs_path.name
+        legacy_abs = project_root / legacy_rel
+        legacy_abs.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(abs_path, legacy_abs)
+        try:
+            r.sacs_pdf_path = str(legacy_rel)
+            db.session.commit()
+
+            resp = logged_in_client.get(f"/reports/{rid}/pdf/sacs")
+            assert resp.status_code == 200, resp.data[:200]
+            assert resp.data.startswith(b"%PDF")
+        finally:
+            shutil.rmtree(legacy_abs.parent, ignore_errors=True)
+
+
 def test_live_totals_endpoint_returns_json(logged_in_client, app, rich_client):
     logged_in_client.post(f"/reports/new/{rich_client}", data={"meeting_date": "2026-01-15"})
     with app.app_context():

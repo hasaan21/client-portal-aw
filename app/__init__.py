@@ -18,7 +18,15 @@ def create_app(config_name: str | None = None) -> Flask:
     app.config.from_object(get_config(config_name))
 
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
-    Path(app.config["PDF_OUTPUT_DIR"]).mkdir(parents=True, exist_ok=True)
+
+    # Normalize PDF_OUTPUT_DIR to an absolute path so stored paths (and
+    # Flask's send_file, which resolves relative paths against app.root_path)
+    # both agree on the location regardless of CWD.
+    pdf_dir = Path(app.config["PDF_OUTPUT_DIR"])
+    if not pdf_dir.is_absolute():
+        pdf_dir = (Path(app.root_path).parent / pdf_dir).resolve()
+    app.config["PDF_OUTPUT_DIR"] = str(pdf_dir)
+    pdf_dir.mkdir(parents=True, exist_ok=True)
 
     _configure_logging(app)
     _init_extensions(app)

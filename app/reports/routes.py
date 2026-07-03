@@ -150,6 +150,7 @@ def detail(report_id: int):
     return render_template(
         "reports/detail.html",
         report=report,
+        client=report.client,
         ctx=ctx,
         totals=totals,
         delete_form=delete_form,
@@ -223,8 +224,25 @@ def download_pdf(report_id: int, kind: str):
     from pathlib import Path
 
     p = Path(path)
+    if not p.is_absolute():
+        # Legacy rows may hold a path relative to the project root (before
+        # PDF_OUTPUT_DIR was normalised at app init). Resolve against the
+        # project root so send_file — which otherwise resolves relative paths
+        # against app.root_path (=<project>/app) — finds the file.
+        p = (Path(current_app.root_path).parent / p).resolve()
     if not p.exists():
-        abort(404)
+        # Path was stored but the file is gone (deleted volume, moved dir).
+        # Regenerate on demand so the user isn't stuck.
+        outputs = generate_all(report)
+        new_path = outputs.get(kind)
+        if not new_path:
+            abort(404)
+        p = Path(new_path)
+        if kind == "sacs":
+            report.sacs_pdf_path = new_path
+        else:
+            report.tcc_pdf_path = new_path
+        db.session.commit()
     return send_file(p, as_attachment=True, download_name=p.name, mimetype="application/pdf")
 
 

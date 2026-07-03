@@ -58,9 +58,9 @@ TCC_LAYOUT = {
     "top_strip_y": PAGE_HEIGHT - 40,
     "grand_total_box": (CENTER_X - 65, PAGE_HEIGHT - 70, 130, 46),  # x, y, w, h
     # Client-name-oval row
-    "name_oval_y": PAGE_HEIGHT - 130,
-    "name_oval_w": 90,
-    "name_oval_h": 40,
+    "name_oval_y": PAGE_HEIGHT - 132,
+    "name_oval_w": 96,
+    "name_oval_h": 52,
     "c1_col_x": 210,
     "c2_col_x": PAGE_WIDTH - 210,
     "ret_only_box_w": 130,
@@ -118,7 +118,7 @@ def render_tcc(report: Report, output_path: str | Path | BytesIO | None = None) 
     canvas.save()
     data = buffer.getvalue()
 
-    if isinstance(output_path, (str, Path)):
+    if isinstance(output_path, str | Path):
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         Path(output_path).write_bytes(data)
     return data
@@ -197,7 +197,7 @@ def _draw_name_row(canvas: Canvas, ctx: ReportEntryContext, totals) -> None:
         c1_box_y + layout["ret_only_box_h"] - 12,
         "Client 1 Retirement Only",
         font=FONT_BOLD,
-        size=9,
+        size=8,
         color=(1, 1, 1),
     )
     draw_centered_text(
@@ -276,7 +276,7 @@ def _draw_name_row(canvas: Canvas, ctx: ReportEntryContext, totals) -> None:
             c2_box_y + layout["ret_only_box_h"] - 12,
             "Client 2 Retirement Only",
             font=FONT_BOLD,
-            size=9,
+            size=8,
             color=(1, 1, 1),
         )
         draw_centered_text(
@@ -299,17 +299,36 @@ def _draw_name_oval(
     canvas.setLineWidth(1.2)
     canvas.roundRect(cx - w / 2, cy - h / 2, w, h, radius=h / 2, fill=1, stroke=1)
     canvas.restoreState()
-    draw_centered_text(canvas, cx, cy + 5, label, font=FONT_BOLD, size=13, color=(1, 1, 1))
+    # Name in the upper half; meta lines fit inside the lower half. Line
+    # spacing (6.5pt @ 6.5pt font) is tuned so a 3-line block sits inside a
+    # 52pt-tall oval without touching the border.
+    lines = [line for line in subtitle.split("\n") if line]
+    draw_centered_text(canvas, cx, cy + 11, label, font=FONT_BOLD, size=13, color=(1, 1, 1))
     canvas.setFillColor((1, 1, 1))
-    canvas.setFont(FONT_REGULAR, 7)
-    for i, line in enumerate(subtitle.split("\n")):
-        canvas.drawCentredString(cx, cy - 6 - i * 8, line)
+    canvas.setFont(FONT_REGULAR, 6.5)
+    for i, line in enumerate(lines):
+        canvas.drawCentredString(cx, cy - 1 - i * 7, line)
 
 
 def _member_meta(client, side: int) -> str:
+    """Compact per-spouse header shown inside the name oval.
+
+    Renders age / DOB / SSN when populated on the client; falls back to a
+    bare label so the oval never shows an orphan word. Kept to three short
+    lines so it fits inside a 90x40 pill.
+    """
     if side == 1:
-        return "Age\nDOB\nSSN"  # Compact placeholder — real data is in the client detail
-    return "Age\nDOB\nSSN"
+        age, dob, last4 = client.c1_age, client.c1_dob, client.c1_ssn_last4
+    else:
+        age, dob, last4 = client.c2_age, client.c2_dob, client.c2_ssn_last4
+    lines: list[str] = []
+    if age is not None:
+        lines.append(f"Age {age}")
+    if dob is not None:
+        lines.append(f"DOB {dob.strftime('%m/%d/%y')}")
+    if last4:
+        lines.append(f"SSN ****{last4}")
+    return "\n".join(lines)
 
 
 def _latest_date(dates):
@@ -326,8 +345,11 @@ def _draw_retirement_row(canvas: Canvas, ctx: ReportEntryContext) -> None:
     r = layout["ret_bubble_r"]
     gap = layout["ret_bubble_gap"]
 
-    # 2 bubbles per side, centered under each client column.
-    def _draw_side(rows, side_center_x):
+    # 2 bubbles per side, centered under each client column. A small
+    # per-column footer ("<first_name>") sits below each group so readers
+    # can tell which side belongs to which spouse without a full "—
+    # Retirement" label (which collided with the ovals above).
+    def _draw_side(rows, side_center_x, footer_label):
         n = len(rows)
         if n == 0:
             return
@@ -336,9 +358,14 @@ def _draw_retirement_row(canvas: Canvas, ctx: ReportEntryContext) -> None:
         for i, row in enumerate(rows):
             bx = start_x + i * (2 * r + gap)
             _draw_retirement_bubble(canvas, bx, y, r, row)
+        canvas.setFillColor(GRAY_600)
+        canvas.setFont(FONT_BOLD, 7.5)
+        canvas.drawCentredString(side_center_x, y - r - 10, f"{footer_label} · RETIREMENT")
 
-    _draw_side(ctx.c1_retirement, layout["c1_col_x"])
-    _draw_side(ctx.c2_retirement, layout["c2_col_x"])
+    c1_name = ctx.client.c1_first or "Client 1"
+    c2_name = ctx.client.c2_first or "Client 2"
+    _draw_side(ctx.c1_retirement, layout["c1_col_x"], c1_name)
+    _draw_side(ctx.c2_retirement, layout["c2_col_x"], c2_name)
 
 
 def _draw_retirement_bubble(canvas: Canvas, cx: float, cy: float, r: float, row) -> None:
@@ -378,11 +405,10 @@ def _draw_retirement_bubble(canvas: Canvas, cx: float, cy: float, r: float, row)
 
 
 def _draw_retirement_section_label(canvas: Canvas) -> None:
-    canvas.setFillColor(GRAY_600)
-    canvas.setFont(FONT_REGULAR, 8)
-    canvas.drawString(45, PAGE_HEIGHT - 300, "RETIREMENT")
-    canvas.drawRightString(PAGE_WIDTH - 45, PAGE_HEIGHT - 300, "RETIREMENT")
-
+    # Divider between the retirement zone and the non-retirement zone below.
+    # (The per-column "<name> — Retirement" headers now live in
+    # `_draw_retirement_row`, so the old edge-anchored RETIREMENT labels are
+    # gone — they were unclear when only one column had accounts.)
     canvas.setStrokeColor(GRAY_200)
     canvas.setLineWidth(0.5)
     canvas.line(45, PAGE_HEIGHT - 310, PAGE_WIDTH - 45, PAGE_HEIGHT - 310)
@@ -394,14 +420,6 @@ def _draw_retirement_section_label(canvas: Canvas) -> None:
 def _draw_non_retirement_zone(canvas: Canvas, ctx: ReportEntryContext, totals) -> None:
     layout = TCC_LAYOUT
 
-    # Section labels
-    canvas.setFillColor(GRAY_600)
-    canvas.setFont(FONT_REGULAR, 8)
-    canvas.drawString(45, PAGE_HEIGHT - 325, "NON")
-    canvas.drawString(45, PAGE_HEIGHT - 335, "RETIREMENT")
-    canvas.drawRightString(PAGE_WIDTH - 45, PAGE_HEIGHT - 325, "NON")
-    canvas.drawRightString(PAGE_WIDTH - 45, PAGE_HEIGHT - 335, "RETIREMENT")
-
     # Split non-retirement accounts left/right by owner (Client 1 vs Client 2 vs Joint).
     left_accounts = []
     right_accounts = []
@@ -411,34 +429,56 @@ def _draw_non_retirement_zone(canvas: Canvas, ctx: ReportEntryContext, totals) -
         else:
             left_accounts.append(row)
 
+    # Section labels — pinned to the page edge and only drawn on sides
+    # that actually have accounts, so the reader never sees an orphan
+    # "NON RETIREMENT" heading with nothing under it.
+    canvas.setFillColor(GRAY_600)
+    canvas.setFont(FONT_REGULAR, 7)
+    if left_accounts:
+        canvas.drawString(38, PAGE_HEIGHT - 325, "NON")
+        canvas.drawString(38, PAGE_HEIGHT - 334, "RETIREMENT")
+    if right_accounts:
+        canvas.drawRightString(PAGE_WIDTH - 38, PAGE_HEIGHT - 325, "NON")
+        canvas.drawRightString(PAGE_WIDTH - 38, PAGE_HEIGHT - 334, "RETIREMENT")
+
+    # Bubble columns pulled slightly inward (was -100/+100) so the edge
+    # labels have breathing room.
+    _draw_bubble_column(canvas, layout["c1_col_x"] - 70, layout["non_ret_col_top_y"], left_accounts)
     _draw_bubble_column(
-        canvas, layout["c1_col_x"] - 100, layout["non_ret_col_top_y"], left_accounts
-    )
-    _draw_bubble_column(
-        canvas, layout["c2_col_x"] + 100, layout["non_ret_col_top_y"], right_accounts
+        canvas, layout["c2_col_x"] + 70, layout["non_ret_col_top_y"], right_accounts
     )
 
-    # Trust in the center
+    # Trust in the center — includes optional property address subtitle.
     trust_row = ctx.trust[0] if ctx.trust else None
     tx = CENTER_X
     ty = layout["trust_y"]
     tr = layout["trust_r"]
     draw_filled_circle(canvas, tx, ty, tr, fill=(1, 1, 1), stroke=GRAY_400)
     trust_label = ctx.client.trust_label or "Family Trust"
-    lines = _wrap(trust_label, 22)[:3]
+    lines = _wrap(trust_label, 22)[:2]
     for i, line in enumerate(lines):
         draw_centered_text(
-            canvas, tx, ty + 20 - i * 10, line, font=FONT_BOLD, size=8, color=GRAY_800
+            canvas, tx, ty + 24 - i * 10, line, font=FONT_BOLD, size=8, color=GRAY_800
         )
     trust_balance = trust_row.balance.balance if trust_row else Decimal("0")
     draw_centered_text(
-        canvas, tx, ty - 4, money(trust_balance), font=FONT_BOLD, size=10, color=GRAY_800
+        canvas, tx, ty + 2, money(trust_balance), font=FONT_BOLD, size=11, color=GRAY_800
     )
+    if ctx.client.trust_property_address:
+        # Small italic-feeling subtitle. Wrap to keep it inside the circle.
+        canvas.setFillColor(GRAY_600)
+        canvas.setFont(FONT_REGULAR, 6.5)
+        addr_lines = _wrap(ctx.client.trust_property_address, 22)[:2]
+        for i, line in enumerate(addr_lines):
+            canvas.drawCentredString(tx, ty - 12 - i * 8, line)
     if trust_row and trust_row.balance.as_of_date:
         canvas.setFillColor(GRAY_600)
         canvas.setFont(FONT_REGULAR, 7)
+        addr_offset = 16 if ctx.client.trust_property_address else 0
         canvas.drawCentredString(
-            tx, ty - 16, f"a/o {trust_row.balance.as_of_date.strftime('%m/%d/%y')}"
+            tx,
+            ty - 28 - addr_offset,
+            f"a/o {trust_row.balance.as_of_date.strftime('%m/%d/%y')}",
         )
 
 
