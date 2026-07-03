@@ -84,20 +84,25 @@ def draw_arrow_polygon(
     canvas: Canvas,
     start: tuple[float, float],
     end: tuple[float, float],
-    fill: Color,
+    fill: Color | None,
     shaft_width: float = 14,
     head_length: float = 18,
     head_width: float = 26,
     stroke: Color | None = None,
+    stroke_width: float = 0.5,
     label: str | None = None,
     label_font: str = FONT_BOLD,
     label_size: float = 9,
     label_color: Color | None = None,
+    label_inside: bool = False,
 ) -> None:
     """Draw a flat 2D arrow (rectangular shaft + triangular head).
 
     Direction is inferred from start -> end. Works for horizontal, vertical,
-    or diagonal directions.
+    or diagonal directions. Pass ``fill=None`` (with a non-None ``stroke``)
+    to render a hollow outline arrow. Set ``label_inside=True`` to place
+    the label centered on the shaft (rather than offset perpendicular to
+    it).
     """
     import math
 
@@ -125,12 +130,14 @@ def draw_arrow_polygon(
     p7 = (hx - px * hd, hy - py * hd)  # head base right
 
     canvas.saveState()
-    canvas.setFillColor(fill)
+    do_fill = fill is not None
+    if do_fill:
+        canvas.setFillColor(fill)
     if stroke is not None:
         canvas.setStrokeColor(stroke)
-    else:
+    elif do_fill:
         canvas.setStrokeColor(fill)
-    canvas.setLineWidth(0.5)
+    canvas.setLineWidth(stroke_width)
     path = canvas.beginPath()
     path.moveTo(*p1)
     path.lineTo(*p4)
@@ -140,16 +147,22 @@ def draw_arrow_polygon(
     path.lineTo(*p3)
     path.lineTo(*p2)
     path.close()
-    canvas.drawPath(path, fill=1, stroke=1)
+    canvas.drawPath(path, fill=1 if do_fill else 0, stroke=1 if (stroke or do_fill) else 0)
     canvas.restoreState()
 
     if label:
         mid_x = (sx + hx) / 2
         mid_y = (sy + hy) / 2
-        # Slight nudge perpendicular so the label sits above the shaft.
-        offset = shaft_width / 2 + 6
-        lx = mid_x + px * offset
-        ly = mid_y + py * offset
+        if label_inside:
+            # Centered on the shaft (nudged down by ~1/3 the font size to
+            # account for text baseline vs visual center).
+            lx = mid_x
+            ly = mid_y - label_size / 3
+        else:
+            # Nudged perpendicular so the label sits above the shaft.
+            offset = shaft_width / 2 + 6
+            lx = mid_x + px * offset
+            ly = mid_y + py * offset
         draw_centered_text(
             canvas, lx, ly, label, font=label_font, size=label_size, color=label_color
         )

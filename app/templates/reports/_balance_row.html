@@ -59,7 +59,7 @@
 
       <label class="checkbox stale-checkbox">
         <input type="checkbox" name="stale_{{ a.id }}" {% if b.is_stale %}checked{% endif %} {% if is_final %}disabled{% endif %} />
-        <span>Not up to date <span class="muted">(renders * on PDF)</span></span>
+        <span>Not up to date <span class="muted">(renders <span class="stale-marker">*</span> on PDF)</span></span>
       </label>
     </div>
   </div>

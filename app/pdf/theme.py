@@ -28,6 +28,10 @@ PRIVATE_RESERVE_BLUE = Color(0.28, 0.47, 0.72)
 
 CLIENT_OVAL_GREEN = Color(0.52, 0.73, 0.45)
 CLIENT_OVAL_STROKE = Color(0.15, 0.35, 0.15)
+# Muted olive/khaki tint used for the outer border, the dotted vertical
+# divider, and the "RETIREMENT" edge labels on the TCC. Deliberately
+# lighter than CLIENT_OVAL_STROKE so those chrome elements recede.
+CLIENT_ACCENT_LIGHT = Color(0.68, 0.75, 0.42)
 
 GRAY_50 = Color(0.97, 0.97, 0.97)
 GRAY_100 = Color(0.93, 0.93, 0.94)

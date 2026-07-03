@@ -120,11 +120,19 @@ def _seed_demo_client(admin: User, force: bool) -> None:
             Account(client_id=c.id, section=section, owner=AccountOwner.JOINT, kind=kind)
         )
 
+    # Retirement — 2 accounts for Client 1 (fills outer + inner left column)
+    # and 3 for Client 2 (1 outer-right + 2 stacked inner-right). Matches
+    # the reference sample density.
+    # Order matters — the TCC PDF puts accounts[:N//2] in the outer column
+    # and accounts[N//2:] in the inner column with the remainder stacked.
+    # So the first-listed account goes OUTER; put ROTH IRA first for
+    # Client 2 to match the reference sample (Roth outer, IRA + 401K inner).
     retirement = [
-        (AccountOwner.CLIENT1, AccountKind.ROTH_IRA, "Fidelity Roth", "Fidelity", "1122"),
-        (AccountOwner.CLIENT1, AccountKind.IRA, "Vanguard IRA", "Vanguard", "3344"),
-        (AccountOwner.CLIENT2, AccountKind._401K, "Schwab 401(k)", "Schwab", "5566"),
-        (AccountOwner.CLIENT2, AccountKind.PENSION, "Empower Pension", "Empower", "7788"),
+        (AccountOwner.CLIENT1, AccountKind.ROTH_IRA, "ROTH IRA", "Fidelity", "1122"),
+        (AccountOwner.CLIENT1, AccountKind.IRA, "IRA", "Vanguard", "3344"),
+        (AccountOwner.CLIENT2, AccountKind.ROTH_IRA, "ROTH IRA", "Fidelity", "9900"),
+        (AccountOwner.CLIENT2, AccountKind.IRA, "IRA", "Schwab", "5566"),
+        (AccountOwner.CLIENT2, AccountKind._401K, "401K", "Empower", "7788"),
     ]
     for owner, kind, name, custodian, last4 in retirement:
         db.session.add(
@@ -139,39 +147,60 @@ def _seed_demo_client(admin: User, force: bool) -> None:
             )
         )
 
-    db.session.add(
-        Account(
-            client_id=c.id,
-            section=AccountSection.NON_RETIREMENT,
-            owner=AccountOwner.JOINT,
-            kind=AccountKind.CHECKING,
-            display_name="Wells Fargo Main",
-            custodian="Wells Fargo",
-            last4="9911",
+    # Non-retirement — 4 on Client 1 side, 3 on Client 2 side.
+    non_ret = [
+        (
+            AccountOwner.JOINT,
+            AccountKind.CHECKING,
+            "Wells Fargo Main Checking",
+            "Wells Fargo",
+            "9911",
+        ),
+        (AccountOwner.JOINT, AccountKind.HYSA, "Wells Fargo Savings", "Wells Fargo", "9912"),
+        (AccountOwner.JOINT, AccountKind.HYSA, "StoneCastle FICA", "StoneCastle", "5511"),
+        (AccountOwner.JOINT, AccountKind.BROKERAGE, "Schwab JT TEN", "Schwab", "3322"),
+        (AccountOwner.CLIENT2, AccountKind.HYSA, "Pinnacle Inflow", "Pinnacle", "7011"),
+        (AccountOwner.CLIENT2, AccountKind.HYSA, "Pinnacle Outflow", "Pinnacle", "7012"),
+        (AccountOwner.CLIENT2, AccountKind.HYSA, "Pinnacle Private Reserve", "Pinnacle", "7013"),
+    ]
+    for owner, kind, name, custodian, last4 in non_ret:
+        db.session.add(
+            Account(
+                client_id=c.id,
+                section=AccountSection.NON_RETIREMENT,
+                owner=owner,
+                kind=kind,
+                display_name=name,
+                custodian=custodian,
+                last4=last4,
+            )
         )
-    )
+
     db.session.add(
         Account(
             client_id=c.id,
             section=AccountSection.TRUST,
             owner=AccountOwner.TRUST,
             kind=AccountKind.OTHER,
-            display_name="Trust Property",
+            display_name="Green Family Trust",
         )
     )
 
     db.session.add(InsuranceDeductible(client_id=c.id, label="Health", amount=D("1000")))
     db.session.add(InsuranceDeductible(client_id=c.id, label="Home", amount=D("2000")))
-    db.session.add(
-        Liability(
-            client_id=c.id, kind=LiabilityKind.MORTGAGE, label="P Mortg", interest_rate=D("6.125")
-        )
-    )
-    db.session.add(
-        Liability(
-            client_id=c.id, kind=LiabilityKind.AUTO, label="Mercedes", interest_rate=D("4.500")
-        )
-    )
+
+    # Liabilities — 7 rows so the itemized table matches the reference.
+    liabs = [
+        (LiabilityKind.MORTGAGE, "P Mortg", D("6.125")),
+        (LiabilityKind.MORTGAGE, "S Mortg", D("5.750")),
+        (LiabilityKind.AUTO, "Mercedes", D("4.500")),
+        (LiabilityKind.AUTO, "GMC Sierra", D("5.250")),
+        (LiabilityKind.AUTO, "Escalade", D("6.000")),
+        (LiabilityKind.OTHER, "PNC", D("7.250")),
+        (LiabilityKind.HEALTH, "Health", D("0.000")),
+    ]
+    for kind, label, rate in liabs:
+        db.session.add(Liability(client_id=c.id, kind=kind, label=label, interest_rate=rate))
     db.session.commit()
 
     # Create one FINAL report so the dashboard doesn't look empty on first boot.
@@ -179,33 +208,70 @@ def _seed_demo_client(admin: User, force: bool) -> None:
     report = scaffold_new_report(c, meeting, admin.id)
     db.session.commit()
 
-    populate = {
-        (AccountSection.SACS_INFLOW,): D("15000"),
-        (AccountSection.SACS_OUTFLOW,): D("12000"),
-        (AccountSection.SACS_PRIVATE_RESERVE,): D("52000"),
-        (AccountSection.SACS_INVESTMENT,): D("18500"),
-        (AccountSection.NON_RETIREMENT,): D("189308.04"),
-        (AccountSection.TRUST,): D("450000"),
+    # SACS balances (single-value sections).
+    sacs_balances = {
+        AccountSection.SACS_INFLOW: D("15000"),
+        AccountSection.SACS_OUTFLOW: D("12000"),
+        AccountSection.SACS_PRIVATE_RESERVE: D("52000"),
+        AccountSection.SACS_INVESTMENT: D("18500"),
+        AccountSection.TRUST: D("0"),
+    }
+    # Per-account balances (matched by display_name). Values chosen so the
+    # non-retirement subtotal matches the reference sample's $189,308.04
+    # and cash sub-bubbles show up on retirement accounts that have them.
+    retirement_balances = {
+        # Client 1
+        ("CLIENT1", "ROTH IRA"): (D("11162.47"), D("316")),
+        ("CLIENT1", "IRA"): (D("0"), None),
+        # Client 2
+        ("CLIENT2", "IRA"): (D("37232.46"), D("914")),
+        ("CLIENT2", "401K"): (D("70042"), None),
+        ("CLIENT2", "ROTH IRA"): (D("18885.92"), D("508")),
+    }
+    non_ret_balances = {
+        "Wells Fargo Main Checking": D("448.26"),
+        "Wells Fargo Savings": D("44024"),
+        "StoneCastle FICA": D("44067.78"),
+        "Schwab JT TEN": D("0"),
+        "Pinnacle Inflow": D("990"),
+        "Pinnacle Outflow": D("12990"),
+        "Pinnacle Private Reserve": D("86788"),
     }
     for b in report.balances:
-        if (b.account.section,) in populate:
-            b.balance = populate[(b.account.section,)]
-        elif b.account.section == AccountSection.RETIREMENT:
-            name = b.account.display_name or ""
-            if "Roth" in name:
-                b.balance = D("11162.47")
-            elif "IRA" in name:
-                b.balance = D("15000")
-            elif "401" in name:
-                b.balance = D("70042")
-            elif "Pension" in name:
-                b.balance = D("56118.38")
+        section = b.account.section
+        if section in sacs_balances:
+            b.balance = sacs_balances[section]
+        elif section == AccountSection.RETIREMENT:
+            key = (b.account.owner.value, b.account.display_name or "")
+            if key in retirement_balances:
+                bal, cash = retirement_balances[key]
+                b.balance = bal
+                if cash is not None:
+                    b.cash_balance = cash
+            # Mark 401K as stale (3 months old) so the red footnote renders
+            # on the TCC — matches the reference sample.
+            if b.account.display_name == "401K":
+                b.is_stale = True
+                b.as_of_date = meeting - timedelta(days=92)
+        elif section == AccountSection.NON_RETIREMENT:
+            b.balance = non_ret_balances.get(b.account.display_name or "", D("0"))
+            # Reference sample marks the two Wells Fargo accounts as stale.
+            if b.account.display_name in ("Wells Fargo Main Checking", "Wells Fargo Savings"):
+                b.is_stale = True
+                b.as_of_date = meeting - timedelta(days=40)
+
+    liab_balances = {
+        "P Mortg": D("224218.24"),
+        "S Mortg": D("107587.31"),
+        "Mercedes": D("11152.00"),
+        "GMC Sierra": D("25992.00"),
+        "Escalade": D("31627.52"),
+        "PNC": D("14026.00"),
+        "Health": D("1447.00"),
+    }
     for lb in report.liability_balances:
         liab = next(x for x in report.client.liabilities if x.id == lb.liability_id)
-        if liab.label == "P Mortg":
-            lb.balance = D("224218.24")
-        elif liab.label == "Mercedes":
-            lb.balance = D("11152.00")
+        lb.balance = liab_balances.get(liab.label, D("0"))
 
     report.status = ReportStatus.FINAL
     db.session.flush()

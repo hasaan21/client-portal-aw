@@ -206,16 +206,16 @@ def test_tcc_header_content(app, tcc_ready_report):
 def test_tcc_shows_retirement_account_labels(app, tcc_ready_report):
     """Retirement accounts render as individual bubbles per spouse.
 
-    Non-retirement is also itemized as individual bubbles (matching the
-    reference sample); liabilities are itemized in the center table.
-    Labels are truncated to ~14 chars in the small bubbles, so we check for
-    substrings rather than exact matches.
+    Bubble labels wrap to two lines inside the circle (matching the
+    reference sample), so a two-word account name like "Fidelity Roth"
+    is extracted as "Fidelity\\nRoth" rather than a single line. We
+    therefore assert on the individual words rather than the joined
+    phrase.
     """
     _, text, _ = _extract(app, tcc_ready_report)
-    for label in ["Fidelity Roth", "Vanguard IRA", "Company Pension"]:
-        assert label in text, f"Missing retirement account: {label}"
-    # "Schwab 401(k)" is 14 chars — may be truncated to "Schwab 401(k…" depending on layout
-    assert "Schwab" in text
+    # Each account should appear via at least one distinctive token.
+    for token in ["Fidelity", "Roth", "Vanguard", "Company", "Pension", "Schwab", "401"]:
+        assert token in text, f"Missing retirement account token: {token}"
 
 
 def test_tcc_shows_computed_grand_total(app, tcc_ready_report):

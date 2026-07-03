@@ -84,6 +84,12 @@ body {
   background: var(--gray-50);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Sticky footer: stack header / main / footer vertically and let the
+     main region absorb the leftover vertical space so the footer always
+     sits at (or below) the viewport bottom, even on short pages. */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 h1, h2, h3, h4, h5, h6 { margin: 0 0 var(--space-3); line-height: 1.25; color: var(--gray-900); }
 h1 { font-size: 1.75rem; font-weight: 700; }
@@ -147,16 +153,26 @@ a:hover { text-decoration: underline; }
   align-items: center;
   gap: var(--space-3);
 }
-.user-name { color: var(--gray-600); font-weight: 500; }
+.user-identity {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+}
+.user-name { color: var(--gray-700); font-weight: 600; font-size: 0.9rem; }
+.user-email { color: var(--gray-500); font-size: 0.75rem; }
 
 .site-main {
   padding: var(--space-10) 0 var(--space-16);
+  flex: 1 0 auto;
 }
 .site-footer {
   padding: var(--space-6) 0;
   border-top: 1px solid var(--gray-200);
   color: var(--gray-500);
   font-size: 0.875rem;
+  flex-shrink: 0;
+  background: var(--gray-0, #fff);
   background: var(--gray-0);
 }
 .footer-inner { display: flex; justify-content: space-between; }
@@ -203,7 +219,6 @@ a:hover { text-decoration: underline; }
 }
 .stat-label { color: var(--gray-500); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
 .stat-value { font-size: 2rem; font-weight: 700; color: var(--gray-900); }
-.stat-value--small { font-size: 1rem; font-weight: 500; color: var(--gray-700); word-break: break-all; }
 
 /* Report list --------------------------------------------------------------*/
 .report-list { list-style: none; margin: 0; padding: 0; }
@@ -304,6 +319,7 @@ a:hover { text-decoration: underline; }
 /* Auth ---------------------------------------------------------------------*/
 .auth-body { background: linear-gradient(160deg, var(--brand-blue-500), var(--brand-blue-700)); min-height: 100vh; }
 .auth-body .site-main { padding: 0; }
+.auth-body .site-footer { display: none; }
 .auth-shell {
   min-height: 100vh;
   display: grid;
@@ -477,11 +493,47 @@ a:hover { text-decoration: underline; }
 .balance-row__title { display: flex; flex-direction: column; gap: 2px; }
 .balance-row__inputs {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  /* Each numeric/date input keeps a reasonable minimum width so long
+     currency values (e.g. "11162.47") aren't visually clipped inside a
+     narrow column. */
+  grid-template-columns:
+    minmax(140px, 1.1fr)
+    minmax(140px, 1.1fr)
+    minmax(150px, 1fr)
+    auto;
   gap: var(--space-3);
   align-items: end;
 }
-.stale-checkbox { align-self: center; font-size: 0.85rem; }
+.balance-row__inputs .input { min-width: 0; }
+.balance-row__inputs input[type="number"] {
+  /* Right-align numerics so the trailing digits stay visible in the
+     rare case a value overflows and the browser scrolls. */
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* Retirement section renders two spouses side-by-side inside .tcc-grid,
+   so each balance row only gets ~half the page width. Wrap the inputs
+   into a 2-column grid there and let the fields flow onto two rows so
+   nothing overflows into the neighbor column. */
+.tcc-grid .balance-row__inputs {
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr);
+}
+.tcc-grid .stale-checkbox { max-width: none; }
+.stale-checkbox {
+  align-self: center;
+  font-size: 0.85rem;
+  /* Wraps to two short lines so it doesn't steal horizontal space from
+     the balance / cash / date inputs. */
+  max-width: 130px;
+  line-height: 1.25;
+}
+.stale-checkbox > span { display: inline-block; }
+/* The literal '*' is a stale-data marker on the PDF; highlight it in red
+   wherever it appears in the UI so users associate it with the warning. */
+.stale-marker {
+  color: var(--danger, #dc2626);
+  font-weight: 700;
+}
 
 .chip--action {
   background: var(--brand-blue-50);
@@ -593,7 +645,6 @@ a:hover { text-decoration: underline; }
 }
 .stat-card--warn { border-color: #fde68a; background: linear-gradient(0deg, #fffbeb 0%, var(--gray-0) 100%); }
 .stat-card--warn .stat-value { color: var(--warning); }
-.stat-tiny { font-size: 0.75rem; }
 .report-list__actions { display: flex; align-items: center; gap: var(--space-2); }
 
 /* Audit log ----------------------------------------------------------------*/
@@ -606,7 +657,9 @@ a:hover { text-decoration: underline; }
 .chip:focus-visible, [data-use-last-value]:focus-visible { outline-offset: 2px; }
 
 @media (max-width: 900px) {
-  .balance-row__inputs { grid-template-columns: 1fr 1fr; }
+  .balance-row__inputs {
+    grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr);
+  }
   .sticky-actions { flex-direction: column; align-items: stretch; }
   .totals-grid { grid-template-columns: 1fr 1fr; }
 }
@@ -615,7 +668,7 @@ a:hover { text-decoration: underline; }
 @media (max-width: 680px) {
   .header-inner { gap: var(--space-4); }
   .primary-nav { gap: var(--space-4); }
-  .user-name { display: none; }
+  .user-identity { display: none; }
   .page-header { flex-direction: column; align-items: flex-start; }
   .table th:nth-child(4), .table td:nth-child(4) { display: none; }
 }
