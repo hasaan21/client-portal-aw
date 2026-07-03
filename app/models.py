@@ -206,6 +206,23 @@ class Client(TimestampMixin, db.Model):
     def last_report(self) -> Report | None:
         return self.reports[0] if self.reports else None
 
+    def owner_display(self, owner: AccountOwner) -> str:
+        """Resolve an AccountOwner enum to the user-facing label for THIS household.
+
+        CLIENT1/CLIENT2 return the person's first name so dropdowns and tables
+        read as e.g. "Andrew" / "Whitney" instead of the generic "Client1".
+        JOINT / TRUST stay literal — they're roles, not people.
+        """
+        if owner == AccountOwner.CLIENT1:
+            return self.c1_first or "Client 1"
+        if owner == AccountOwner.CLIENT2:
+            return self.c2_first or "Client 2"
+        if owner == AccountOwner.JOINT:
+            return "Joint"
+        if owner == AccountOwner.TRUST:
+            return "Trust"
+        return str(owner.value).title()
+
     def __repr__(self) -> str:
         return f"<Client {self.household_label}>"
 
@@ -266,6 +283,11 @@ class Account(db.Model):
     @property
     def label(self) -> str:
         return self.display_name or self.kind.value.replace("_", " ")
+
+    @property
+    def owner_label(self) -> str:
+        """User-facing owner name (resolves CLIENT1/2 to first names)."""
+        return self.client.owner_display(self.owner)
 
 
 class Liability(db.Model):

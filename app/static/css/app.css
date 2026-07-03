@@ -481,30 +481,53 @@ a:hover { text-decoration: underline; }
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+/* Each balance entry renders as its own tile so accounts feel like discrete
+   units instead of an anonymous stripe of inputs. The tile gets a subtle
+   background against the parent white card, a hairline border, and clear
+   spacing between neighbours. When the user checks "Not up to date" the
+   tile picks up a soft red highlight so it matches the red '*' that
+   appears in the same row on the PDF. */
 .balance-row {
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--gray-100);
+  padding: var(--space-4);
+  background: var(--gray-25);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--r-md);
+  margin-bottom: var(--space-3);
+  transition: border-color 120ms ease, background 120ms ease;
 }
-.balance-row:last-child { border-bottom: 0; }
+.balance-row:last-child { margin-bottom: 0; }
+.balance-row:hover { border-color: var(--gray-200); }
+.balance-row:has(input[type="checkbox"][name^="stale_"]:checked) {
+  border-color: #fca5a5;
+  background: #fff7f7;
+}
+
 .balance-row__meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
 }
 .balance-row__title strong { font-size: 0.95rem; }
-.balance-row__title { display: flex; flex-direction: column; gap: 2px; }
+.balance-row__title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.balance-row__meta-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
 .balance-row__inputs {
   display: grid;
-  /* Each numeric/date input keeps a reasonable minimum width so long
-     currency values (e.g. "11162.47") aren't visually clipped inside a
-     narrow column. */
+  /* Balance / Cash sub / As-of. The "Not up to date" checkbox lives in the
+     meta row now, freeing this grid to three predictable columns that align
+     vertically across every balance-row on the page. */
   grid-template-columns:
     minmax(140px, 1.1fr)
     minmax(140px, 1.1fr)
-    minmax(150px, 1fr)
-    auto;
+    minmax(150px, 1fr);
   gap: var(--space-3);
   align-items: end;
 }
@@ -515,23 +538,62 @@ a:hover { text-decoration: underline; }
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* Currency inputs render with a muted "$" prefix on the left, keeping the
+   numeric value right-aligned. The prefix is decorative only — the actual
+   input is still a plain <input type="number"> so browser numeric UX
+   (arrow keys, mobile decimal keyboard) works unchanged. */
+.money-input {
+  position: relative;
+  display: block;
+}
+.money-input::before {
+  content: "$";
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-400);
+  font-weight: 500;
+  pointer-events: none;
+}
+.money-input .input { padding-left: 1.6rem; }
+/* Readonly inputs (on finalized reports) get a lighter prefix too. */
+.money-input:has(input[readonly])::before { color: var(--gray-300); }
+
 /* Retirement section renders two spouses side-by-side inside .tcc-grid,
-   so each balance row only gets ~half the page width. Wrap the inputs
-   into a 2-column grid there and let the fields flow onto two rows so
-   nothing overflows into the neighbor column. */
+   so each balance row only gets ~half the page width. Drop to a 2-column
+   inputs grid (Balance + Cash sub on row 1) and let "As of" span both
+   columns on row 2 so the date picker isn't visually orphaned. */
 .tcc-grid .balance-row__inputs {
   grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr);
 }
-.tcc-grid .stale-checkbox { max-width: none; }
-.stale-checkbox {
-  align-self: center;
-  font-size: 0.85rem;
-  /* Wraps to two short lines so it doesn't steal horizontal space from
-     the balance / cash / date inputs. */
-  max-width: 130px;
-  line-height: 1.25;
+.tcc-grid .balance-row__inputs .field--asof { grid-column: 1 / -1; }
+
+/* Subtle vertical rule between the two spouse columns so David's and
+   Priya's account stacks read as sibling groups, not one big blur. */
+.tcc-grid { column-gap: var(--space-6); }
+.tcc-grid > div + div {
+  border-left: 1px solid var(--gray-100);
+  padding-left: var(--space-4);
 }
-.stale-checkbox > span { display: inline-block; }
+
+/* Compact stale toggle for placement in the meta row alongside the Last chip. */
+.stale-checkbox {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.stale-checkbox:hover { background: var(--gray-100); }
+.stale-checkbox input[type="checkbox"] { margin: 0; cursor: pointer; }
+.stale-checkbox > span { line-height: 1; }
+.balance-row:has(input[type="checkbox"][name^="stale_"]:checked) .stale-checkbox {
+  color: var(--danger, #dc2626);
+  font-weight: 600;
+}
 /* The literal '*' is a stale-data marker on the PDF; highlight it in red
    wherever it appears in the UI so users associate it with the warning. */
 .stale-marker {
@@ -583,28 +645,48 @@ a:hover { text-decoration: underline; }
   flex: 1;
   min-width: 0;
 }
+/* Live-totals footer.
+   Each metric is a self-contained flex column so the label + value can never
+   wrap onto different rows (which was the old grid's failure mode — you could
+   see "TRUST" on one row and "$246,700.00" alone on the next). The container
+   itself wraps as whole units and each unit stays glued together. */
 .totals-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 2px 12px;
-  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-6);
 }
-.totals-grid .tt-label {
+.totals-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: max-content;
+}
+.totals-item .tt-label {
   font-size: 0.7rem;
   color: var(--gray-500);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  line-height: 1.1;
 }
-.totals-grid .tt-value {
+.totals-item .tt-value {
   font-family: var(--font-mono);
   font-weight: 600;
-  color: var(--gray-900);
   font-size: 0.9rem;
+  color: var(--gray-900);
   font-variant-numeric: tabular-nums;
+  line-height: 1.15;
 }
-.totals-grid .tt-label--big { color: var(--brand-blue-600); font-weight: 700; }
-.totals-grid .tt-value--big { color: var(--brand-blue-600); font-size: 1rem; }
-.totals-grid .tt-warn { color: var(--warning); }
+/* Grand total sits first and gets a bigger, blue-brand treatment plus a hair
+   line divider to its right — the eye lands on the primary number first. */
+.totals-item--primary {
+  padding-right: var(--space-6);
+  border-right: 1px solid var(--gray-200);
+}
+.totals-item--primary .tt-label { color: var(--brand-blue-600); font-weight: 700; }
+.totals-item--primary .tt-value { color: var(--brand-blue-600); font-size: 1.15rem; }
+.totals-item--warn .tt-label,
+.totals-item--warn .tt-value { color: var(--warning); }
 
 .sticky-actions__buttons { display: flex; gap: var(--space-3); flex-shrink: 0; }
 .stack-tight { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-end; }
@@ -664,8 +746,16 @@ a:hover { text-decoration: underline; }
   .balance-row__inputs {
     grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr);
   }
+  .balance-row__inputs .field--asof { grid-column: 1 / -1; }
   .sticky-actions { flex-direction: column; align-items: stretch; }
   .totals-grid { grid-template-columns: 1fr 1fr; }
+  .tcc-grid > div + div {
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid var(--gray-100);
+    padding-top: var(--space-4);
+    margin-top: var(--space-4);
+  }
 }
 
 /* Small screens -------------------------------------------------------------*/

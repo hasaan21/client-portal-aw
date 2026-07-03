@@ -111,7 +111,7 @@
         {% for a in client.accounts %}
           <tr>
             <td><code class="chip">{{ a.section.value.replace('_', ' ')|title }}</code></td>
-            <td>{{ a.owner.value|title }}</td>
+            <td>{{ a.owner_label }}</td>
             <td>{{ a.kind.value.replace('_', ' ')|title }}</td>
             <td>{{ a.display_name or '—' }}</td>
             <td>{{ a.custodian or '—' }}</td>

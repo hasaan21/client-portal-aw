@@ -147,6 +147,8 @@ def test_archive_and_restore(logged_in_client, app):
 
 
 def _make_client(app) -> int:
+    """Married household. Married so JOINT / CLIENT2 remain valid choices on
+    the AccountForm dropdown (single-client households filter those out)."""
     with app.app_context():
         c = Client(
             household_label="Test HH",
@@ -155,6 +157,11 @@ def _make_client(app) -> int:
             c1_dob=date(1980, 1, 1),
             c1_ssn_last4="1111",
             c1_monthly_salary=Decimal("10000"),
+            c2_first="C",
+            c2_last="D",
+            c2_dob=date(1982, 2, 2),
+            c2_ssn_last4="2222",
+            c2_monthly_salary=Decimal("8000"),
             monthly_expense_budget=Decimal("5000"),
         )
         db.session.add(c)

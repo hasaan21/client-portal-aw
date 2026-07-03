@@ -46,6 +46,25 @@ from app.models import (
 )
 
 
+def _owner_choices_for(client: Client) -> list[tuple[str, str]]:
+    """Owner dropdown choices for AccountForm scoped to a household.
+
+    - CLIENT1 / CLIENT2 render as the person's first name so the dropdown
+      reads "Andrew" / "Whitney" instead of the generic "Client1" / "Client2".
+    - For single-client households we hide CLIENT2 and JOINT — they can't
+      produce valid data — so the UI stops offering nonsensical options AND
+      WTForms rejects them if someone POSTs them via crafted requests.
+    """
+    choices: list[tuple[str, str]] = [
+        (AccountOwner.CLIENT1.value, client.owner_display(AccountOwner.CLIENT1)),
+    ]
+    if client.is_married:
+        choices.append((AccountOwner.CLIENT2.value, client.owner_display(AccountOwner.CLIENT2)))
+        choices.append((AccountOwner.JOINT.value, "Joint"))
+    choices.append((AccountOwner.TRUST.value, "Trust"))
+    return choices
+
+
 def _get_client_or_404(client_id: int) -> Client:
     client = db.session.get(Client, client_id)
     if client is None:
@@ -124,6 +143,7 @@ def detail(client_id: int):
     client = _get_client_or_404(client_id)
 
     account_form = AccountForm()
+    account_form.owner.choices = _owner_choices_for(client)
     liability_form = LiabilityForm()
     deductible_form = DeductibleForm()
     delete_form = DeleteForm()
@@ -204,6 +224,7 @@ def restore(client_id: int):
 def add_account(client_id: int):
     client = _get_client_or_404(client_id)
     form = AccountForm()
+    form.owner.choices = _owner_choices_for(client)
     if not form.validate_on_submit():
         for _, errs in form.errors.items():
             for e in errs:

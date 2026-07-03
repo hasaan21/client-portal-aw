@@ -40,16 +40,15 @@
       <span class="muted">Cashflow diagram (Page 1) + Reserve & Investment (Page 2)</span>
     </div>
 
-    {% for key, label, hint in [
-      ('inflow',          'Inflow',                 'Client take-home deposited to primary checking.'),
-      ('outflow',         'Outflow',                'Agreed monthly expense budget (transferred on the 28th).'),
-      ('private_reserve', client.private_reserve_label ~ ' balance', 'Requested from bank ~2 days before meeting.'),
-      ('investment',      'Investment account',     'From Schwab (Andrew or Rebecca retrieves manually).'),
+    {% for key, label in [
+      ('inflow',          'Inflow'),
+      ('outflow',         'Outflow'),
+      ('private_reserve', client.private_reserve_label ~ ' balance'),
+      ('investment',      'Investment account'),
     ] %}
       {% if ctx.sacs_rows.get(key) %}
         <div class="section-label">
           <span>{{ label }}</span>
-          <span class="muted">{{ hint }}</span>
         </div>
         {{ balance_row(ctx.sacs_rows[key], report.is_final) }}
       {% else %}
@@ -149,13 +148,15 @@
         <div class="balance-row__inputs">
           <label class="field">
             <span class="field-label">Balance</span>
-            <input class="input liab-balance-input"
-                   type="number" step="0.01" inputmode="decimal"
-                   name="liab_balance_{{ l.id }}"
-                   value="{{ lb.balance }}"
-                   {% if report.is_final %}readonly{% endif %} />
+            <span class="money-input">
+              <input class="input liab-balance-input"
+                     type="number" step="0.01" inputmode="decimal"
+                     name="liab_balance_{{ l.id }}"
+                     value="{{ lb.balance }}"
+                     {% if report.is_final %}readonly{% endif %} />
+            </span>
           </label>
-          <label class="field">
+          <label class="field field--asof">
             <span class="field-label">As of</span>
             <input class="input"
                    type="date"
@@ -174,14 +175,40 @@
   <div class="sticky-actions">
     <div class="live-totals" id="live-totals" data-endpoint="{{ url_for('reports.live_totals', report_id=report.id) }}">
       <div class="totals-grid">
-        <span class="tt-label">Excess</span>          <span class="tt-value" data-total="excess">${{ '{:,.2f}'.format(totals.excess) }}</span>
-        <span class="tt-label">PR target</span>       <span class="tt-value" data-total="pr_target">${{ '{:,.2f}'.format(totals.pr_target) }}</span>
-        <span class="tt-label">C1 retirement</span>   <span class="tt-value" data-total="c1_retirement">${{ '{:,.2f}'.format(totals.c1_retirement) }}</span>
-        {% if client.is_married %}<span class="tt-label">C2 retirement</span>   <span class="tt-value" data-total="c2_retirement">${{ '{:,.2f}'.format(totals.c2_retirement) }}</span>{% endif %}
-        <span class="tt-label">Non-retirement</span>  <span class="tt-value" data-total="non_retirement">${{ '{:,.2f}'.format(totals.non_retirement) }}</span>
-        <span class="tt-label">Trust</span>           <span class="tt-value" data-total="trust_value">${{ '{:,.2f}'.format(totals.trust_value) }}</span>
-        <span class="tt-label tt-label--big">Grand total</span> <span class="tt-value tt-value--big" data-total="grand_total">${{ '{:,.2f}'.format(totals.grand_total) }}</span>
-        <span class="tt-label tt-warn">Liabilities</span>       <span class="tt-value tt-warn" data-total="liabilities_total">${{ '{:,.2f}'.format(totals.liabilities_total) }}</span>
+        <div class="totals-item totals-item--primary">
+          <span class="tt-label">Grand total</span>
+          <span class="tt-value" data-total="grand_total">${{ '{:,.2f}'.format(totals.grand_total) }}</span>
+        </div>
+        <div class="totals-item">
+          <span class="tt-label">Excess</span>
+          <span class="tt-value" data-total="excess">${{ '{:,.2f}'.format(totals.excess) }}</span>
+        </div>
+        <div class="totals-item">
+          <span class="tt-label">PR target</span>
+          <span class="tt-value" data-total="pr_target">${{ '{:,.2f}'.format(totals.pr_target) }}</span>
+        </div>
+        <div class="totals-item">
+          <span class="tt-label">{{ client.c1_first }} retirement</span>
+          <span class="tt-value" data-total="c1_retirement">${{ '{:,.2f}'.format(totals.c1_retirement) }}</span>
+        </div>
+        {% if client.is_married %}
+        <div class="totals-item">
+          <span class="tt-label">{{ client.c2_first }} retirement</span>
+          <span class="tt-value" data-total="c2_retirement">${{ '{:,.2f}'.format(totals.c2_retirement) }}</span>
+        </div>
+        {% endif %}
+        <div class="totals-item">
+          <span class="tt-label">Non-retirement</span>
+          <span class="tt-value" data-total="non_retirement">${{ '{:,.2f}'.format(totals.non_retirement) }}</span>
+        </div>
+        <div class="totals-item">
+          <span class="tt-label">Trust</span>
+          <span class="tt-value" data-total="trust_value">${{ '{:,.2f}'.format(totals.trust_value) }}</span>
+        </div>
+        <div class="totals-item totals-item--warn">
+          <span class="tt-label">Liabilities</span>
+          <span class="tt-value" data-total="liabilities_total">${{ '{:,.2f}'.format(totals.liabilities_total) }}</span>
+        </div>
       </div>
     </div>
 
